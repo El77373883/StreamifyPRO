@@ -10,11 +10,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 👇 FORZAMOS XCODE 16.4 (ESTABLE)
+      - name: Seleccionar Xcode 16.4
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+
       - name: Instalar XcodeGen
         run: brew install xcodegen
 
       - name: Generar proyecto
         run: xcodegen generate
+
+      # 👇 LIMPIAMOS CUALQUIER CACHÉ RESIDUAL
+      - name: Limpiar Caché
+        run: |
+          rm -rf ~/Library/Developer/Xcode/DerivedData
+          rm -rf build
 
       - name: Compilar sin firmar
         run: |
@@ -26,8 +36,6 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            SWIFT_ENABLE_EXPLICIT_MODULES=NO \
-            CLANG_ENABLE_EXPLICIT_MODULES=NO \
             build
 
       - name: Empaquetar IPA
