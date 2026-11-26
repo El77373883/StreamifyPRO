@@ -1,12 +1,23 @@
+
 name: Streamify
+
 options:
   bundleIdPrefix: com.streamify
+
 targets:
   Streamify:
     type: application
     platform: iOS
     deploymentTarget: "16.0"
-    sources: [Sources]
+
+    sources:
+      - Sources
+
+    info:
+      properties:
+        UIBackgroundModes:
+          - audio
+
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.streamify.app
