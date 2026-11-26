@@ -6,6 +6,123 @@ import MediaPlayer
 import Combine
 import UIKit
 
+// MARK: - DESCARGADOR CON PROGRESO REAL
+
+private final class DescargaAudio: NSObject, URLSessionDownloadDelegate {
+
+    private let url: URL
+    private let progresoHandler: (Double) -> Void
+    private let completion: (Result<URL, Error>) -> Void
+    private var session: URLSession?
+
+    init(
+        url: URL,
+        progreso: @escaping (Double) -> Void,
+        completion: @escaping (Result<URL, Error>) -> Void
+    ) {
+        self.url = url
+        self.progresoHandler = progreso
+        self.completion = completion
+        super.init()
+    }
+
+    func iniciar() {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 180
+
+        let nuevaSesion = URLSession(
+            configuration: config,
+            delegate: self,
+            delegateQueue: OperationQueue.main
+        )
+
+        session = nuevaSesion
+        nuevaSesion.downloadTask(with: url).resume()
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        downloadTask: URLSessionDownloadTask,
+        didWriteData bytesWritten: Int64,
+        totalBytesWritten: Int64,
+        totalBytesExpectedToWrite: Int64
+    ) {
+        guard totalBytesExpectedToWrite > 0 else { return }
+
+        let porcentaje =
+            Double(totalBytesWritten) /
+            Double(totalBytesExpectedToWrite)
+
+        progresoHandler(min(max(porcentaje, 0), 1))
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        downloadTask: URLSessionDownloadTask,
+        didFinishDownloadingTo location: URL
+    ) {
+        do {
+            if let respuesta = downloadTask.response as? HTTPURLResponse,
+               !(200...299).contains(respuesta.statusCode) {
+                throw URLError(.badServerResponse)
+            }
+
+            let documentos = FileManager.default.urls(
+                for: .documentDirectory,
+                in: .userDomainMask
+            )[0]
+
+            let carpeta = documentos.appendingPathComponent(
+                "StreamifyMusic",
+                isDirectory: true
+            )
+
+            try FileManager.default.createDirectory(
+                at: carpeta,
+                withIntermediateDirectories: true
+            )
+
+            let extensionArchivo =
+                downloadTask.response?.suggestedFilename?
+                    .split(separator: ".").last
+                    .map(String.init) ?? "mp3"
+
+            let destino = carpeta.appendingPathComponent(
+                UUID().uuidString + "." + extensionArchivo
+            )
+
+            try FileManager.default.moveItem(
+                at: location,
+                to: destino
+            )
+
+            progresoHandler(1)
+            completion(.success(destino))
+
+        } catch {
+            completion(.failure(error))
+        }
+
+        session.finishTasksAndInvalidate()
+        self.session = nil
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        didCompleteWithError error: Error?
+    ) {
+        if let error = error {
+            completion(.failure(error))
+            session.invalidateAndCancel()
+            self.session = nil
+        }
+    }
+}
+
+// MARK: - REPRODUCTOR
+
 class Reproductor: ObservableObject {
 
     @Published var cancionActual: Cancion?
@@ -17,7 +134,10 @@ class Reproductor: ObservableObject {
     @Published var descargas: [Cancion] = []
 
     @Published var descargandoKeys: Set<String> = []
+    @Published var progresoDescarga: [String: Double] = [:]
     @Published var mensajeDescarga = ""
+
+    private var descargasActivas: [String: DescargaAudio] = [:]
 
     private var player: AVPlayer?
     private var timer: AnyCancellable?
@@ -52,9 +172,11 @@ class Reproductor: ObservableObject {
             )) ?? []
 
             descargas = guardadas.filter {
-                guard let url = URL(string: $0.urlAudio) else {
+                guard let url = URL(string: $0.urlAudio),
+                      url.isFileURL else {
                     return false
                 }
+
                 return FileManager.default.fileExists(
                     atPath: url.path
                 )
@@ -115,82 +237,73 @@ class Reproductor: ObservableObject {
         guard let url = URL(string: cancion.urlAudio),
               let esquema = url.scheme,
               esquema == "https" || esquema == "http" else {
-
             mensajeDescarga = "URL de audio no válida."
             return
         }
 
-        guard !descargandoKeys.contains(cancion.clave) else {
+        let clave = cancion.clave
+
+        guard !descargandoKeys.contains(clave) else {
             return
         }
 
-        descargandoKeys.insert(cancion.clave)
-        mensajeDescarga = "Descargando canción..."
+        descargandoKeys.insert(clave)
+        progresoDescarga[clave] = 0
+        mensajeDescarga = "Preparando descarga..."
 
-        URLSession.shared.downloadTask(with: url) {
-            [weak self] archivoTemporal, response, error in
+        let descarga = DescargaAudio(
+            url: url,
+            progreso: { [weak self] valor in
+                guard let self = self else { return }
 
-            guard let self = self else { return }
+                self.progresoDescarga[clave] = valor
+                self.mensajeDescarga = "Descargando música..."
+            },
+            completion: { [weak self] resultado in
+                guard let self = self else { return }
 
-            defer {
-                DispatchQueue.main.async {
-                    self.descargandoKeys.remove(cancion.clave)
-                }
-            }
+                self.descargandoKeys.remove(clave)
+                self.descargasActivas.removeValue(forKey: clave)
 
-            guard error == nil,
-                  let archivoTemporal = archivoTemporal,
-                  let http = response as? HTTPURLResponse,
-                  (200...299).contains(http.statusCode) else {
+                switch resultado {
 
-                DispatchQueue.main.async {
-                    self.mensajeDescarga = "No se pudo descargar."
-                }
-                return
-            }
+                case .success(let archivo):
 
-            do {
-                let carpeta = FileManager.default.urls(
-                    for: .documentDirectory,
-                    in: .userDomainMask
-                )[0].appendingPathComponent("StreamifyMusic")
-
-                try FileManager.default.createDirectory(
-                    at: carpeta,
-                    withIntermediateDirectories: true
-                )
-
-                let nombre = UUID().uuidString + ".mp3"
-                let destino = carpeta.appendingPathComponent(nombre)
-
-                try FileManager.default.moveItem(
-                    at: archivoTemporal,
-                    to: destino
-                )
-
-                var cancionLocal = cancion
-                cancionLocal.urlAudio = destino.absoluteString
-
-                DispatchQueue.main.async {
+                    var local = cancion
+                    local.urlAudio = archivo.absoluteString
 
                     self.descargas.removeAll {
-                        $0.clave == cancion.clave
+                        $0.clave == clave
                     }
 
-                    self.descargas.append(cancionLocal)
+                    self.descargas.append(local)
                     self.guardarDescargas()
 
-                    self.mensajeDescarga = "¡Canción descargada!"
-                }
+                    self.progresoDescarga[clave] = 1
+                    self.mensajeDescarga = "¡Descarga completada!"
 
-            } catch {
+                    DispatchQueue.main.asyncAfter(
+                        deadline: .now() + 2
+                    ) {
+                        self.progresoDescarga.removeValue(
+                            forKey: clave
+                        )
+                    }
 
-                DispatchQueue.main.async {
-                    self.mensajeDescarga = "Error guardando la canción."
+                case .failure:
+
+                    self.progresoDescarga.removeValue(
+                        forKey: clave
+                    )
+
+                    self.mensajeDescarga =
+                        "No se pudo descargar. Inténtalo otra vez."
                 }
             }
+        )
 
-        }.resume()
+        descargasActivas[clave] = descarga
+        descarga.iniciar()
     }
 
     // MARK: - REPRODUCCIÓN
@@ -199,11 +312,11 @@ class Reproductor: ObservableObject {
 
         cancionActual = cancion
 
-        let cancionLocal = descargas.first {
+        let local = descargas.first {
             $0.clave == cancion.clave
         }
 
-        let cancionParaReproducir = cancionLocal ?? cancion
+        let cancionParaReproducir = local ?? cancion
 
         guard let url = URL(
             string: cancionParaReproducir.urlAudio
@@ -226,6 +339,7 @@ class Reproductor: ObservableObject {
         player?.pause()
 
         player = AVPlayer(url: url)
+
         progreso = 0
         duracion = 1
 
@@ -269,7 +383,6 @@ class Reproductor: ObservableObject {
         )
 
         player.seek(to: tiempo)
-
         progreso = seguro
     }
 
@@ -304,9 +417,8 @@ class Reproductor: ObservableObject {
                 self.progreso = min(max(actual / dur, 0), 1)
             }
 
-            if player.timeControlStatus == .paused {
-                self.reproduciendo = false
-            }
+            self.reproduciendo =
+                player.timeControlStatus == .playing
         }
     }
 
@@ -350,7 +462,8 @@ class Reproductor: ObservableObject {
 
     private func actualizarEstadoBloqueo() {
 
-        var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+        var info =
+            MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
 
         info[MPNowPlayingInfoPropertyPlaybackRate] =
             reproduciendo ? 1.0 : 0.0
