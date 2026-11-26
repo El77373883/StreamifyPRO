@@ -10,16 +10,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 👇 SELECCIÓN DINÁMICA DE XCODE (BUSCA EL 16)
-      - name: Seleccionar Xcode (Dinámico)
+      # Intentar usar Xcode 16.4, si no, usa el default sin fallar
+      - name: Seleccionar Xcode
         run: |
-          # Busca la primera versión de Xcode 16 que encuentre en el sistema
-          XCODE_PATH=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | head -n 1)
-          if [ -n "$XCODE_PATH" ]; then
-            echo "Seleccionando: $XCODE_PATH"
-            sudo xcode-select -s "$XCODE_PATH"
+          if [ -d "/Applications/Xcode_16.4.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.4.app
+            echo "Usando Xcode 16.4"
+          elif [ -d "/Applications/Xcode_16.3.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.3.app
+            echo "Usando Xcode 16.3"
           else
-            echo "No se encontró Xcode 16, usando el predeterminado"
+            echo "No se encontró Xcode 16.x, usando el predeterminado del sistema"
           fi
           xcodebuild -version
 
@@ -29,7 +30,6 @@ jobs:
       - name: Generar proyecto
         run: xcodegen generate
 
-      # 👇 LIMPIAMOS CACHÉ PARA EVITAR ERRORES DE COMPILACIÓN
       - name: Limpiar Caché
         run: |
           rm -rf ~/Library/Developer/Xcode/DerivedData
