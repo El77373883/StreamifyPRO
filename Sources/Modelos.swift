@@ -1,14 +1,22 @@
+
 import Foundation
 
 struct Cancion: Identifiable, Codable, Equatable {
-    let id: UUID
-    let titulo: String
-    let artista: String
-    let album: String
-    let urlPortada: String
-    let urlAudio: String
-    
-    init(id: UUID = UUID(), titulo: String, artista: String, album: String = "Sencillo", urlPortada: String, urlAudio: String) {
+    var id: UUID
+    var titulo: String
+    var artista: String
+    var album: String
+    var urlPortada: String
+    var urlAudio: String
+
+    init(
+        id: UUID = UUID(),
+        titulo: String,
+        artista: String,
+        album: String = "Sencillo",
+        urlPortada: String,
+        urlAudio: String
+    ) {
         self.id = id
         self.titulo = titulo
         self.artista = artista
@@ -16,9 +24,12 @@ struct Cancion: Identifiable, Codable, Equatable {
         self.urlPortada = urlPortada
         self.urlAudio = urlAudio
     }
+
+    var clave: String {
+        "\(titulo.lowercased())|\(artista.lowercased())"
+    }
 }
 
-// Estructuras para la API de Deezer
 struct DeezerResponse: Codable {
     let data: [DeezerItem]
 }
@@ -29,11 +40,11 @@ struct DeezerItem: Codable, Identifiable {
     let artist: DeezerArtist
     let album: DeezerAlbum
     let preview: String
-    
+
     struct DeezerArtist: Codable {
         let name: String
     }
-    
+
     struct DeezerAlbum: Codable {
         let title: String
         let cover_medium: String
