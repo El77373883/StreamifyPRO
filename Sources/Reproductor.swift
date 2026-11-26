@@ -8,10 +8,10 @@ import UIKit
 
 class Reproductor: ObservableObject {
 
-    @Published var cancionActual: Cancion? = nil
+    @Published var cancionActual: Cancion?
     @Published var reproduciendo = false
-    @Published var progreso: Double = 0.0
-    @Published var duracion: Double = 1.0
+    @Published var progreso: Double = 0
+    @Published var duracion: Double = 1
 
     @Published var favoritos: [Cancion] = []
     @Published var descargas: [Cancion] = []
@@ -24,241 +24,212 @@ class Reproductor: ObservableObject {
 
     private let favoritosKey = "StreamifyFavoritos"
     private let descargasKey = "StreamifyDescargas"
-    private let rutasKey = "StreamifyRutasDescarga"
-
-    private var rutasDescarga: [String: String] = [:]
 
     init() {
         cargarDatos()
-        configurarAudio()
         configurarControlesRemotos()
     }
 
-    // MARK: - IDENTIFICADOR DE CANCIÓN
+    // MARK: - GUARDAR DATOS
 
-    private func clave(_ cancion: Cancion) -> String {
-        return "\(cancion.titulo.lowercased())|\(cancion.artista.lowercased())"
+    private func cargarDatos() {
+
+        if let data = UserDefaults.standard.data(
+            forKey: favoritosKey
+        ) {
+            favoritos = (try? JSONDecoder().decode(
+                [Cancion].self,
+                from: data
+            )) ?? []
+        }
+
+        if let data = UserDefaults.standard.data(
+            forKey: descargasKey
+        ) {
+            let guardadas = (try? JSONDecoder().decode(
+                [Cancion].self,
+                from: data
+            )) ?? []
+
+            descargas = guardadas.filter {
+                guard let url = URL(string: $0.urlAudio) else {
+                    return false
+                }
+                return FileManager.default.fileExists(
+                    atPath: url.path
+                )
+            }
+
+            guardarDescargas()
+        }
+    }
+
+    private func guardarFavoritos() {
+        if let data = try? JSONEncoder().encode(favoritos) {
+            UserDefaults.standard.set(data, forKey: favoritosKey)
+        }
+    }
+
+    private func guardarDescargas() {
+        if let data = try? JSONEncoder().encode(descargas) {
+            UserDefaults.standard.set(data, forKey: descargasKey)
+        }
     }
 
     // MARK: - FAVORITOS
 
     func esFavorita(_ cancion: Cancion) -> Bool {
         favoritos.contains {
-            clave($0) == clave(cancion)
+            $0.clave == cancion.clave
         }
     }
 
     func alternarFavorito(_ cancion: Cancion) {
+
         if esFavorita(cancion) {
             favoritos.removeAll {
-                clave($0) == clave(cancion)
+                $0.clave == cancion.clave
             }
         } else {
             favoritos.append(cancion)
         }
 
-        guardarDatos()
+        guardarFavoritos()
     }
 
     // MARK: - DESCARGAS
 
     func estaDescargada(_ cancion: Cancion) -> Bool {
-        let key = clave(cancion)
-
-        guard let ruta = rutasDescarga[key] else {
-            return false
+        descargas.contains {
+            $0.clave == cancion.clave
         }
-
-        return FileManager.default.fileExists(atPath: ruta)
     }
 
     func descargar(_ cancion: Cancion) {
-
-        let key = clave(cancion)
 
         if estaDescargada(cancion) {
             mensajeDescarga = "Esta canción ya está descargada."
             return
         }
 
-        if descargandoKeys.contains(key) {
-            return
-        }
-
         guard let url = URL(string: cancion.urlAudio),
-              let esquema = url.scheme?.lowercased(),
+              let esquema = url.scheme,
               esquema == "https" || esquema == "http" else {
-            mensajeDescarga = "No se pudo obtener el enlace de audio."
+
+            mensajeDescarga = "URL de audio no válida."
             return
         }
 
-        descargandoKeys.insert(key)
-        mensajeDescarga = "Descargando \(cancion.titulo)..."
+        guard !descargandoKeys.contains(cancion.clave) else {
+            return
+        }
 
-        URLSession.shared.downloadTask(with: url) { [weak self] archivoTemporal, respuesta, error in
+        descargandoKeys.insert(cancion.clave)
+        mensajeDescarga = "Descargando canción..."
+
+        URLSession.shared.downloadTask(with: url) {
+            [weak self] archivoTemporal, response, error in
 
             guard let self = self else { return }
 
-            if let error = error {
+            defer {
                 DispatchQueue.main.async {
-                    self.descargandoKeys.remove(key)
-                    self.mensajeDescarga = "Error al descargar: \(error.localizedDescription)"
+                    self.descargandoKeys.remove(cancion.clave)
                 }
-                return
             }
 
-            guard let archivoTemporal = archivoTemporal else {
-                DispatchQueue.main.async {
-                    self.descargandoKeys.remove(key)
-                    self.mensajeDescarga = "No se recibió el archivo."
-                }
-                return
-            }
+            guard error == nil,
+                  let archivoTemporal = archivoTemporal,
+                  let http = response as? HTTPURLResponse,
+                  (200...299).contains(http.statusCode) else {
 
-            if let respuesta = respuesta as? HTTPURLResponse,
-               !(200...299).contains(respuesta.statusCode) {
                 DispatchQueue.main.async {
-                    self.descargandoKeys.remove(key)
-                    self.mensajeDescarga = "El servidor rechazó la descarga."
+                    self.mensajeDescarga = "No se pudo descargar."
                 }
                 return
             }
 
             do {
-                let documentos = FileManager.default.urls(
+                let carpeta = FileManager.default.urls(
                     for: .documentDirectory,
                     in: .userDomainMask
-                )[0]
-
-                let carpeta = documentos.appendingPathComponent(
-                    "StreamifyDownloads",
-                    isDirectory: true
-                )
+                )[0].appendingPathComponent("StreamifyMusic")
 
                 try FileManager.default.createDirectory(
                     at: carpeta,
                     withIntermediateDirectories: true
                 )
 
-                let extensionArchivo = URLSession.shared.configuration.httpAdditionalHeaders == nil
-                    ? "mp3" : (url.pathExtension.isEmpty ? "mp3" : url.pathExtension)
-
-                let destino = carpeta.appendingPathComponent(
-                    UUID().uuidString + "." + extensionArchivo
-                )
+                let nombre = UUID().uuidString + ".mp3"
+                let destino = carpeta.appendingPathComponent(nombre)
 
                 try FileManager.default.moveItem(
                     at: archivoTemporal,
                     to: destino
                 )
 
-                DispatchQueue.main.async {
-                    self.rutasDescarga[key] = destino.path
+                var cancionLocal = cancion
+                cancionLocal.urlAudio = destino.absoluteString
 
-                    if !self.descargas.contains(where: {
-                        self.clave($0) == key
-                    }) {
-                        self.descargas.append(cancion)
+                DispatchQueue.main.async {
+
+                    self.descargas.removeAll {
+                        $0.clave == cancion.clave
                     }
 
-                    self.descargandoKeys.remove(key)
-                    self.mensajeDescarga = "¡Canción descargada correctamente!"
+                    self.descargas.append(cancionLocal)
+                    self.guardarDescargas()
 
-                    self.guardarDatos()
+                    self.mensajeDescarga = "¡Canción descargada!"
                 }
 
             } catch {
+
                 DispatchQueue.main.async {
-                    self.descargandoKeys.remove(key)
-                    self.mensajeDescarga = "No se pudo guardar el archivo."
+                    self.mensajeDescarga = "Error guardando la canción."
                 }
             }
+
         }.resume()
     }
 
-    // MARK: - GUARDAR DATOS
+    // MARK: - REPRODUCCIÓN
 
-    private func cargarDatos() {
-        let defaults = UserDefaults.standard
+    func reproducir(_ cancion: Cancion) {
 
-        if let data = defaults.data(forKey: favoritosKey),
-           let canciones = try? JSONDecoder().decode([Cancion].self, from: data) {
-            favoritos = canciones
+        cancionActual = cancion
+
+        let cancionLocal = descargas.first {
+            $0.clave == cancion.clave
         }
 
-        if let data = defaults.data(forKey: descargasKey),
-           let canciones = try? JSONDecoder().decode([Cancion].self, from: data) {
-            descargas = canciones
+        let cancionParaReproducir = cancionLocal ?? cancion
+
+        guard let url = URL(
+            string: cancionParaReproducir.urlAudio
+        ) else {
+            return
         }
 
-        if let rutas = defaults.dictionary(forKey: rutasKey) as? [String: String] {
-            rutasDescarga = rutas
-        }
-
-        // Eliminar registros de descargas cuyos archivos ya no existen.
-        descargas.removeAll {
-            !estaDescargada($0)
-        }
-
-        guardarDatos()
-    }
-
-    private func guardarDatos() {
-        let defaults = UserDefaults.standard
-
-        if let data = try? JSONEncoder().encode(favoritos) {
-            defaults.set(data, forKey: favoritosKey)
-        }
-
-        if let data = try? JSONEncoder().encode(descargas) {
-            defaults.set(data, forKey: descargasKey)
-        }
-
-        defaults.set(rutasDescarga, forKey: rutasKey)
-    }
-
-    // MARK: - CONFIGURAR AUDIO
-
-    private func configurarAudio() {
         do {
             try AVAudioSession.sharedInstance().setCategory(
                 .playback,
-                mode: .default,
-                options: []
+                mode: .default
             )
 
             try AVAudioSession.sharedInstance().setActive(true)
+
         } catch {
-            print("Error configurando audio: \(error)")
+            print("Error de audio: \(error)")
         }
-    }
 
-    // MARK: - REPRODUCIR
+        player?.pause()
 
-    func reproducir(_ cancion: Cancion) {
-        cancionActual = cancion
+        player = AVPlayer(url: url)
         progreso = 0
         duracion = 1
 
-        let key = clave(cancion)
-
-        let url: URL
-
-        if let ruta = rutasDescarga[key],
-           FileManager.default.fileExists(atPath: ruta) {
-            url = URL(fileURLWithPath: ruta)
-        } else {
-            guard let onlineURL = URL(string: cancion.urlAudio) else {
-                mensajeDescarga = "Enlace de audio no válido."
-                return
-            }
-
-            url = onlineURL
-        }
-
-        player = AVPlayer(url: url)
         player?.play()
-
         reproduciendo = true
 
         actualizarInfoPantallaBloqueo(cancion)
@@ -272,8 +243,6 @@ class Reproductor: ObservableObject {
     }
 
     func reanudar() {
-        guard player != nil else { return }
-
         player?.play()
         reproduciendo = true
         actualizarEstadoBloqueo()
@@ -288,25 +257,26 @@ class Reproductor: ObservableObject {
     }
 
     func cambiarProgreso(a valor: Double) {
-        guard let player = player,
-              duracion.isFinite,
-              duracion > 0 else {
-            return
-        }
 
-        let valorSeguro = min(max(valor, 0), 1)
-        let nuevoTiempo = CMTime(
-            seconds: duracion * valorSeguro,
+        guard let player = player else { return }
+
+        let seguro = min(max(valor, 0), 1)
+        let segundos = duracion * seguro
+
+        let tiempo = CMTime(
+            seconds: segundos,
             preferredTimescale: 600
         )
 
-        player.seek(to: nuevoTiempo)
-        progreso = valorSeguro
+        player.seek(to: tiempo)
+
+        progreso = seguro
     }
 
     // MARK: - TEMPORIZADOR
 
     private func iniciarTimer() {
+
         timer?.cancel()
 
         timer = Timer.publish(
@@ -322,7 +292,9 @@ class Reproductor: ObservableObject {
                 return
             }
 
-            let actual = CMTimeGetSeconds(player.currentTime())
+            let actual = CMTimeGetSeconds(
+                player.currentTime()
+            )
 
             if let dur = player.currentItem?.duration.seconds,
                dur.isFinite,
@@ -331,16 +303,22 @@ class Reproductor: ObservableObject {
                 self.duracion = dur
                 self.progreso = min(max(actual / dur, 0), 1)
             }
+
+            if player.timeControlStatus == .paused {
+                self.reproduciendo = false
+            }
         }
     }
 
     // MARK: - PANTALLA BLOQUEADA
 
-    private func actualizarInfoPantallaBloqueo(_ cancion: Cancion) {
+    private func actualizarInfoPantallaBloqueo(
+        _ cancion: Cancion
+    ) {
+
         var info: [String: Any] = [
             MPMediaItemPropertyTitle: cancion.titulo,
             MPMediaItemPropertyArtist: cancion.artista,
-            MPMediaItemPropertyAlbumTitle: cancion.album,
             MPNowPlayingInfoPropertyPlaybackRate: 1.0
         ]
 
@@ -350,25 +328,28 @@ class Reproductor: ObservableObject {
             return
         }
 
-        URLSession.shared.dataTask(with: url) { data, _, _ in
+        URLSession.shared.dataTask(with: url) {
+            data, _, _ in
+
             guard let data = data,
                   let imagen = UIImage(data: data) else {
                 return
             }
 
-            let artwork = MPMediaItemArtwork(boundsSize: imagen.size) { _ in
-                imagen
-            }
-
-            info[MPMediaItemPropertyArtwork] = artwork
+            info[MPMediaItemPropertyArtwork] =
+                MPMediaItemArtwork(boundsSize: imagen.size) {
+                    _ in imagen
+                }
 
             DispatchQueue.main.async {
                 MPNowPlayingInfoCenter.default().nowPlayingInfo = info
             }
+
         }.resume()
     }
 
     private func actualizarEstadoBloqueo() {
+
         var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
 
         info[MPNowPlayingInfoPropertyPlaybackRate] =
@@ -380,6 +361,7 @@ class Reproductor: ObservableObject {
     // MARK: - CONTROLES REMOTOS
 
     private func configurarControlesRemotos() {
+
         let centro = MPRemoteCommandCenter.shared()
 
         centro.playCommand.addTarget { [weak self] _ in
