@@ -29,6 +29,11 @@ struct ReproductorCompleto: View {
         return reproductor.descargandoKeys.contains(cancion.clave)
     }
 
+    private var avanceDescarga: Double {
+        guard let cancion = cancion else { return 0 }
+        return reproductor.progresoDescarga[cancion.clave] ?? 0
+    }
+
     var body: some View {
 
         ZStack {
@@ -116,6 +121,7 @@ struct ReproductorCompleto: View {
                         if descargando {
                             ProgressView()
                                 .tint(.green)
+                                .scaleEffect(1.3)
                                 .frame(width: 34, height: 34)
 
                         } else {
@@ -155,6 +161,8 @@ struct ReproductorCompleto: View {
                 }
                 .padding(.horizontal, 24)
 
+                // MENSAJE DE DESCARGA
+
                 if !reproductor.mensajeDescarga.isEmpty {
                     Text(reproductor.mensajeDescarga)
                         .font(.caption)
@@ -164,7 +172,52 @@ struct ReproductorCompleto: View {
                         .padding(.top, 8)
                 }
 
-                // PROGRESO
+                // ANIMACIÓN Y PROGRESO DE DESCARGA
+
+                if descargando {
+
+                    VStack(spacing: 9) {
+
+                        HStack {
+                            ProgressView()
+                                .tint(.green)
+
+                            Text("Descargando música...")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.85))
+
+                            Spacer()
+
+                            if avanceDescarga > 0 {
+                                Text(
+                                    "\(Int(avanceDescarga * 100))%"
+                                )
+                                .font(.caption.bold().monospacedDigit())
+                                .foregroundColor(.green)
+                            } else {
+                                Text("Preparando")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                            }
+                        }
+
+                        if avanceDescarga > 0 {
+                            ProgressView(value: avanceDescarga)
+                                .tint(.green)
+                                .animation(
+                                    .easeInOut(duration: 0.2),
+                                    value: avanceDescarga
+                                )
+                        } else {
+                            ProgressView()
+                                .tint(.green)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 12)
+                }
+
+                // PROGRESO DE REPRODUCCIÓN
 
                 VStack(spacing: 8) {
 
@@ -316,6 +369,8 @@ struct ReproductorCompleto: View {
             progresoLocal = reproductor.progreso
         }
     }
+
+    // MARK: - FORMATO DE TIEMPO
 
     private func tiempo(_ segundos: Double) -> String {
 
