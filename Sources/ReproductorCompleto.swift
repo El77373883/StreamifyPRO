@@ -1,5 +1,4 @@
 
-
 import SwiftUI
 import UIKit
 
@@ -8,50 +7,39 @@ struct ReproductorCompleto: View {
     @ObservedObject var reproductor: Reproductor
     @Environment(\.dismiss) private var dismiss
 
-    @State private var arrastrandoProgreso = false
-    @State private var progresoLocal: Double = 0.0
+    @State private var progresoLocal: Double = 0
+    @State private var arrastrando = false
 
-    // MARK: - ESTADO DE DESCARGA
-
-    private var cancionDescargando: Bool {
-        guard let cancion = reproductor.cancionActual else {
-            return false
-        }
-
-        let key = "\(cancion.titulo.lowercased())|\(cancion.artista.lowercased())"
-
-        return reproductor.descargandoKeys.contains(key)
+    private var cancion: Cancion? {
+        reproductor.cancionActual
     }
 
-    private var descargaCompletada: Bool {
-        guard let cancion = reproductor.cancionActual else {
-            return false
-        }
+    private var favorita: Bool {
+        guard let cancion = cancion else { return false }
+        return reproductor.esFavorita(cancion)
+    }
 
+    private var descargada: Bool {
+        guard let cancion = cancion else { return false }
         return reproductor.estaDescargada(cancion)
     }
 
-    private var esFavorita: Bool {
-        guard let cancion = reproductor.cancionActual else {
-            return false
-        }
-
-        return reproductor.esFavorita(cancion)
+    private var descargando: Bool {
+        guard let cancion = cancion else { return false }
+        return reproductor.descargandoKeys.contains(cancion.clave)
     }
 
     var body: some View {
 
         ZStack {
-
             Color(red: 0.07, green: 0.07, blue: 0.07)
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
 
-                // MARK: - BARRA SUPERIOR
+                // ENCABEZADO
 
                 HStack {
-
                     Button {
                         dismiss()
                     } label: {
@@ -68,65 +56,46 @@ struct ReproductorCompleto: View {
 
                     Spacer()
 
-                    Button {} label: {
-                        Image(systemName: "ellipsis")
-                            .font(.title2)
-                            .foregroundColor(.white)
-                    }
+                    Image(systemName: "ellipsis")
+                        .font(.title2)
+                        .foregroundColor(.white)
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 15)
+                .padding()
 
-                Spacer(minLength: 25)
+                Spacer(minLength: 15)
 
-                // MARK: - PORTADA
+                // PORTADA
 
-                AsyncImage(
-                    url: URL(
-                        string: reproductor.cancionActual?.urlPortada ?? ""
-                    )
-                ) { image in
-
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-
-                } placeholder: {
-
-                    ZStack {
-                        Color.gray.opacity(0.3)
-
-                        Image(systemName: "music.note")
-                            .font(.system(size: 60))
-                            .foregroundColor(.white)
-                    }
-                }
+                PortadaCancion(
+                    url: cancion?.urlPortada ?? ""
+                )
                 .frame(width: 320, height: 320)
                 .clipShape(Circle())
                 .overlay(
-                    Circle()
-                        .stroke(Color.white.opacity(0.1), lineWidth: 2)
+                    Circle().stroke(
+                        Color.white.opacity(0.12),
+                        lineWidth: 2
+                    )
                 )
                 .shadow(
                     color: .black.opacity(0.5),
                     radius: 20,
-                    x: 0,
                     y: 10
                 )
-                .padding(.bottom, 40)
+                .padding(.bottom, 35)
 
-                // MARK: - INFORMACIÓN DE CANCIÓN
+                // NOMBRE Y BOTONES
 
-                HStack(alignment: .center) {
+                HStack {
 
                     VStack(alignment: .leading, spacing: 6) {
 
-                        Text(reproductor.cancionActual?.titulo ?? "Sin canción")
+                        Text(cancion?.titulo ?? "Sin canción")
                             .font(.title2.bold())
                             .foregroundColor(.white)
                             .lineLimit(1)
 
-                        Text(reproductor.cancionActual?.artista ?? "")
+                        Text(cancion?.artista ?? "")
                             .font(.headline)
                             .foregroundColor(.gray)
                             .lineLimit(1)
@@ -134,82 +103,68 @@ struct ReproductorCompleto: View {
 
                     Spacer()
 
-                    // MARK: - BOTÓN DESCARGAR
+                    // DESCARGAR
 
                     Button {
 
-                        if let cancion = reproductor.cancionActual {
+                        if let cancion = cancion {
                             reproductor.descargar(cancion)
                         }
 
                     } label: {
 
-                        Group {
+                        if descargando {
+                            ProgressView()
+                                .tint(.green)
+                                .frame(width: 34, height: 34)
 
-                            if cancionDescargando {
-
-                                ProgressView()
-                                    .tint(.green)
-                                    .frame(width: 30, height: 30)
-
-                            } else if descargaCompletada {
-
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 30))
-                                    .foregroundColor(.green)
-
-                            } else {
-
-                                Image(systemName: "arrow.down.circle")
-                                    .font(.system(size: 30))
-                                    .foregroundColor(.white)
-                            }
+                        } else {
+                            Image(
+                                systemName: descargada
+                                ? "checkmark.circle.fill"
+                                : "arrow.down.circle"
+                            )
+                            .font(.system(size: 30))
+                            .foregroundColor(
+                                descargada ? .green : .white
+                            )
                         }
                     }
-                    .disabled(
-                        reproductor.cancionActual == nil ||
-                        cancionDescargando ||
-                        descargaCompletada
-                    )
+                    .disabled(descargada || descargando)
 
-                    // MARK: - BOTÓN FAVORITOS
+                    // FAVORITOS
 
                     Button {
 
-                        if let cancion = reproductor.cancionActual {
+                        if let cancion = cancion {
                             reproductor.alternarFavorito(cancion)
                         }
 
                     } label: {
 
                         Image(
-                            systemName: esFavorita
+                            systemName: favorita
                             ? "heart.fill"
                             : "plus.circle"
                         )
                         .font(.system(size: 30))
                         .foregroundColor(
-                            esFavorita ? .green : .white
+                            favorita ? .green : .white
                         )
                     }
-                    .disabled(reproductor.cancionActual == nil)
                 }
                 .padding(.horizontal, 24)
 
-                // MARK: - MENSAJE DE DESCARGA
-
                 if !reproductor.mensajeDescarga.isEmpty {
-
                     Text(reproductor.mensajeDescarga)
                         .font(.caption)
                         .foregroundColor(.green)
-                        .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 24)
-                        .padding(.top, 10)
+                        .padding(.top, 8)
                 }
 
-                // MARK: - BARRA DE PROGRESO
+                // PROGRESO
 
                 VStack(spacing: 8) {
 
@@ -218,7 +173,7 @@ struct ReproductorCompleto: View {
                         in: 0...1,
                         onEditingChanged: { editing in
 
-                            arrastrandoProgreso = editing
+                            arrastrando = editing
 
                             if !editing {
                                 reproductor.cambiarProgreso(
@@ -241,8 +196,8 @@ struct ReproductorCompleto: View {
 
                         Text(
                             "-" + tiempo(
-                                reproductor.duracion -
-                                (progresoLocal * reproductor.duracion)
+                                reproductor.duracion *
+                                (1 - progresoLocal)
                             )
                         )
                     }
@@ -252,21 +207,18 @@ struct ReproductorCompleto: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
                 .onChange(of: reproductor.progreso) { nuevo in
-
-                    if !arrastrandoProgreso {
+                    if !arrastrando {
                         progresoLocal = nuevo
                     }
                 }
 
-                // MARK: - CONTROLES DE MÚSICA
+                // CONTROLES
 
-                HStack(spacing: 35) {
+                HStack(spacing: 30) {
 
-                    Button {} label: {
-                        Image(systemName: "shuffle")
-                            .font(.title2)
-                            .foregroundColor(.green)
-                    }
+                    Image(systemName: "shuffle")
+                        .font(.title2)
+                        .foregroundColor(.green)
 
                     Button {} label: {
                         Image(systemName: "backward.end.fill")
@@ -275,16 +227,13 @@ struct ReproductorCompleto: View {
                     }
 
                     Button {
-
                         reproductor.alternarPlayPausa()
-
                     } label: {
 
                         ZStack {
-
                             Circle()
-                                .fill(Color.white)
-                                .frame(width: 75, height: 75)
+                                .fill(.white)
+                                .frame(width: 76, height: 76)
 
                             Image(
                                 systemName: reproductor.reproduciendo
@@ -302,83 +251,63 @@ struct ReproductorCompleto: View {
                             .foregroundColor(.white)
                     }
 
-                    Button {} label: {
-                        Image(systemName: "repeat")
-                            .font(.title2)
-                            .foregroundColor(.gray)
-                    }
+                    Image(systemName: "repeat")
+                        .font(.title2)
+                        .foregroundColor(.gray)
                 }
                 .padding(.top, 30)
-                .padding(.horizontal, 15)
 
                 Spacer()
 
-                // MARK: - OPCIONES INFERIORES
+                // OPCIONES
 
                 HStack {
-
                     Image(systemName: "quote.bubble")
                         .font(.title3)
                         .foregroundColor(.green)
 
                     Spacer()
 
-                    HStack(spacing: 30) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.title3)
+                        .foregroundColor(.white)
 
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.title3)
-                            .foregroundColor(.white)
-
-                        Image(systemName: "list.bullet")
-                            .font(.title3)
-                            .foregroundColor(.white)
-                    }
+                    Image(systemName: "list.bullet")
+                        .font(.title3)
+                        .foregroundColor(.white)
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 20)
 
-                // MARK: - LETRAS
+                // LETRAS
 
                 VStack(alignment: .leading, spacing: 0) {
 
                     Text("Vista previa de la letra")
-                        .font(.subheadline.bold())
+                        .font(.headline)
                         .foregroundColor(.white)
                         .padding()
-
                         .frame(
                             maxWidth: .infinity,
                             alignment: .leading
                         )
-
                         .background(
                             Color(red: 0.2, green: 0.3, blue: 0.2)
-                        )
-
-                        .cornerRadius(
-                            15,
-                            corners: [.topLeft, .topRight]
                         )
 
                     Text("Letra próximamente...")
                         .font(.body)
                         .foregroundColor(.white)
                         .padding()
-
                         .frame(
                             maxWidth: .infinity,
                             alignment: .leading
                         )
-
                         .background(
                             Color(red: 0.15, green: 0.25, blue: 0.15)
                         )
-
-                        .cornerRadius(
-                            15,
-                            corners: [.bottomLeft, .bottomRight]
-                        )
                 }
+                .clipShape(RoundedRectangle(cornerRadius: 15))
                 .padding(.horizontal, 16)
                 .padding(.bottom, 10)
             }
@@ -388,59 +317,16 @@ struct ReproductorCompleto: View {
         }
     }
 
-    // MARK: - FORMATO DE TIEMPO
-
-    func tiempo(_ segundos: Double) -> String {
+    private func tiempo(_ segundos: Double) -> String {
 
         guard segundos.isFinite, segundos >= 0 else {
             return "0:00"
         }
 
-        let minutos = Int(segundos) / 60
-        let segundosRestantes = Int(segundos) % 60
-
         return String(
             format: "%d:%02d",
-            minutos,
-            segundosRestantes
+            Int(segundos) / 60,
+            Int(segundos) % 60
         )
-    }
-}
-
-// MARK: - ESQUINAS REDONDEADAS
-
-extension View {
-
-    func cornerRadius(
-        _ radius: CGFloat,
-        corners: UIRectCorner
-    ) -> some View {
-
-        clipShape(
-            RoundedCorner(
-                radius: radius,
-                corners: corners
-            )
-        )
-    }
-}
-
-struct RoundedCorner: Shape {
-
-    var radius: CGFloat = .infinity
-    var corners: UIRectCorner = .allCorners
-
-    func path(in rect: CGRect) -> Path {
-
-        let path = UIBezierPath(
-            roundedRect: rect,
-            byRoundingCorners: corners,
-            cornerRadii: CGSize(
-                width: radius,
-                height: radius
-            )
-        )
-
-        return Path(path.cgPath)
     }
 }
