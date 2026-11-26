@@ -63,7 +63,8 @@ struct ReproductorCompleto: View {
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
-                .onChange(of: reproductor.progreso) { nuevo in
+                // 👇 AQUÍ ESTABA EL ERROR. AHORA TIENE DOS PARÁMETROS (_, nuevo)
+                .onChange(of: reproductor.progreso) { _, nuevo in
                     if !arrastrandoProgreso { progresoLocal = nuevo }
                 }
                 
