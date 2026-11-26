@@ -16,36 +16,21 @@ jobs:
       - name: Configurar Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '26.6.0'
-
-      - name: Verificar Xcode
-        run: |
-          xcodebuild -version
-          xcodebuild -showsdks
+          xcode-version: '26.6'
 
       - name: Instalar XcodeGen
-        run: |
-          brew install xcodegen
+        run: brew install xcodegen
 
       - name: Generar proyecto
-        run: |
-          xcodegen generate
+        run: xcodegen generate
 
-      - name: Limpiar compilación anterior
+      - name: Limpiar compilación
         run: |
-          rm -rf ~/Library/Developer/Xcode/DerivedData
           rm -rf build
-          rm -rf Payload
-          rm -f Streamify.ipa
+          rm -rf ~/Library/Developer/Xcode/DerivedData
 
-      - name: Verificar esquema
+      - name: Compilar aplicación
         run: |
-          xcodebuild -list -project Streamify.xcodeproj
-
-      - name: Compilar Streamify sin firma
-        run: |
-          set -o pipefail
-
           xcodebuild \
             -project Streamify.xcodeproj \
             -scheme Streamify \
@@ -57,25 +42,14 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             build
 
-      - name: Verificar aplicación
-        run: |
-          test -d build/Build/Products/Release-iphoneos/Streamify.app
-          echo "Streamify.app generado correctamente"
-
-      - name: Empaquetar IPA
+      - name: Crear IPA
         run: |
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/Streamify.app Payload/
-          /usr/bin/zip -r Streamify.ipa Payload
+          zip -r Streamify.ipa Payload
 
-      - name: Verificar IPA
-        run: |
-          test -f Streamify.ipa
-          unzip -l Streamify.ipa
-
-      - name: Subir IPA
+      - name: Guardar IPA
         uses: actions/upload-artifact@v4
         with:
           name: Streamify-ipa
           path: Streamify.ipa
-          if-no-files-found: error
