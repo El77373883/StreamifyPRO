@@ -8,11 +8,8 @@ struct PortadaCancion: View {
     let url: String
 
     var body: some View {
-
         AsyncImage(url: URL(string: url)) { phase in
-
             switch phase {
-
             case .success(let image):
                 image
                     .resizable()
@@ -52,9 +49,7 @@ struct MainView: View {
 
     @ViewBuilder
     private var miniPlayer: some View {
-
         if reproductor.cancionActual != nil {
-
             MiniReproductor(
                 reproductor: reproductor,
                 mostrarCompleto: $mostrarCompleto
@@ -67,7 +62,6 @@ struct MainView: View {
     }
 
     var body: some View {
-
         TabView {
 
             InicioView(reproductor: reproductor)
@@ -168,11 +162,8 @@ struct InicioView: View {
     ]
 
     var body: some View {
-
         NavigationStack {
-
             ScrollView {
-
                 VStack(alignment: .leading, spacing: 22) {
 
                     Text("Buenas tardes")
@@ -184,22 +175,17 @@ struct InicioView: View {
                         .padding(.horizontal)
 
                     LazyVGrid(columns: columnas, spacing: 18) {
-
                         ForEach(recomendados) { cancion in
-
                             Button {
                                 reproductor.reproducir(cancion)
                             } label: {
-
                                 VStack(alignment: .leading, spacing: 8) {
 
-                                    PortadaCancion(
-                                        url: cancion.urlPortada
-                                    )
-                                    .frame(height: 155)
-                                    .clipShape(
-                                        RoundedRectangle(cornerRadius: 10)
-                                    )
+                                    PortadaCancion(url: cancion.urlPortada)
+                                        .frame(height: 155)
+                                        .clipShape(
+                                            RoundedRectangle(cornerRadius: 10)
+                                        )
 
                                     Text(cancion.titulo)
                                         .font(.headline)
@@ -235,13 +221,10 @@ struct BuscarView: View {
     @State private var termino = ""
 
     var body: some View {
-
         NavigationStack {
-
             VStack {
 
                 HStack {
-
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.gray)
 
@@ -278,11 +261,9 @@ struct BuscarView: View {
                 }
 
                 List(buscador.resultados) { cancion in
-
                     Button {
                         reproductor.reproducir(cancion)
                     } label: {
-
                         HStack(spacing: 12) {
 
                             PortadaCancion(url: cancion.urlPortada)
@@ -290,7 +271,6 @@ struct BuscarView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
 
                             VStack(alignment: .leading, spacing: 5) {
-
                                 Text(cancion.titulo)
                                     .foregroundColor(.white)
                                     .font(.headline)
@@ -326,26 +306,18 @@ struct BibliotecaView: View {
     @ObservedObject var reproductor: Reproductor
 
     var body: some View {
-
         NavigationStack {
-
             List {
 
                 Section("Música descargada") {
-
                     if reproductor.descargas.isEmpty {
-
                         Text("Todavía no tienes descargas.")
                             .foregroundColor(.gray)
-
                     } else {
-
                         ForEach(reproductor.descargas) { cancion in
-
                             Button {
                                 reproductor.reproducir(cancion)
                             } label: {
-
                                 FilaCancion(cancion: cancion)
                             }
                         }
@@ -353,17 +325,13 @@ struct BibliotecaView: View {
                 }
 
                 Section("Escuchando") {
-
                     if let cancion = reproductor.cancionActual {
-
                         Button {
                             reproductor.reproducir(cancion)
                         } label: {
                             FilaCancion(cancion: cancion)
                         }
-
                     } else {
-
                         Text("Todavía no reproduces música.")
                             .foregroundColor(.gray)
                     }
@@ -383,7 +351,6 @@ struct FilaCancion: View {
     let cancion: Cancion
 
     var body: some View {
-
         HStack(spacing: 12) {
 
             PortadaCancion(url: cancion.urlPortada)
@@ -391,7 +358,6 @@ struct FilaCancion: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
 
             VStack(alignment: .leading, spacing: 5) {
-
                 Text(cancion.titulo)
                     .font(.headline)
                     .foregroundColor(.white)
@@ -418,29 +384,58 @@ struct CuentaView: View {
 
     @ObservedObject var reproductor: Reproductor
 
+    @AppStorage("streamify_nombre") private var nombre = "Usuario Streamify"
+    @AppStorage("streamify_correo") private var correo = ""
+    @AppStorage("streamify_plan") private var plan = "Gratis"
+
+    @State private var destino: DestinoCuenta?
+    @State private var mostrarAviso = false
+
+    enum DestinoCuenta: String, Identifiable {
+        case perfil
+        case configuracion
+        case privacidad
+        case planes
+        case ayuda
+        case acerca
+
+        var id: String { rawValue }
+    }
+
     var body: some View {
-
         NavigationStack {
-
             ScrollView {
-
                 VStack(spacing: 22) {
 
                     Image(systemName: "person.crop.circle.fill")
-                        .font(.system(size: 85))
+                        .font(.system(size: 90))
                         .foregroundColor(.green)
                         .padding(.top, 25)
 
                     Text("Mi cuenta")
                         .font(.largeTitle.bold())
 
-                    Text("Tu música, a tu manera")
+                    Text(nombre)
+                        .font(.title3.bold())
+
+                    Text(correo.isEmpty ? "Tu música, a tu manera" : correo)
                         .foregroundColor(.gray)
+
+                    Button {
+                        destino = .perfil
+                    } label: {
+                        Label("Editar perfil", systemImage: "pencil")
+                            .font(.headline)
+                            .foregroundColor(.black)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.green)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
 
                     // ESTADÍSTICAS
 
                     HStack(spacing: 12) {
-
                         estadistica(
                             icono: "heart.fill",
                             numero: reproductor.favoritos.count,
@@ -454,26 +449,62 @@ struct CuentaView: View {
                         )
                     }
 
+                    // MI PLAN
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("👑 Mi plan")
+                            .font(.title2.bold())
+
+                        HStack {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text("Streamify \(plan)")
+                                    .font(.title3.bold())
+
+                                Text(plan == "Gratis"
+                                     ? "Estás usando el plan gratuito"
+                                     : "Plan seleccionado")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "crown.fill")
+                                .font(.largeTitle)
+                                .foregroundColor(.green)
+                        }
+                        .padding()
+                        .background(Color(white: 0.14))
+                        .clipShape(RoundedRectangle(cornerRadius: 15))
+
+                        Button {
+                            destino = .planes
+                        } label: {
+                            Text("Ver todos los planes")
+                                .font(.headline)
+                                .foregroundColor(.green)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color(white: 0.14))
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
                     // FAVORITOS
 
                     VStack(alignment: .leading, spacing: 15) {
-
                         Text("❤️ Mis favoritos")
                             .font(.title2.bold())
 
                         if reproductor.favoritos.isEmpty {
-
                             Text("Aquí aparecerán tus canciones favoritas.")
                                 .foregroundColor(.gray)
-
                         } else {
-
                             ForEach(reproductor.favoritos) { cancion in
-
                                 Button {
                                     reproductor.reproducir(cancion)
                                 } label: {
-
                                     FilaCancion(cancion: cancion)
                                 }
                                 .buttonStyle(.plain)
@@ -487,23 +518,17 @@ struct CuentaView: View {
                     // DESCARGAS
 
                     VStack(alignment: .leading, spacing: 15) {
-
                         Text("⬇️ Música descargada")
                             .font(.title2.bold())
 
                         if reproductor.descargas.isEmpty {
-
                             Text("Aquí aparecerán tus descargas.")
                                 .foregroundColor(.gray)
-
                         } else {
-
                             ForEach(reproductor.descargas) { cancion in
-
                                 Button {
                                     reproductor.reproducir(cancion)
                                 } label: {
-
                                     FilaCancion(cancion: cancion)
                                 }
                                 .buttonStyle(.plain)
@@ -511,11 +536,140 @@ struct CuentaView: View {
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Divider()
+
+                    // OPCIONES DE CUENTA
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("⚙️ Tu cuenta")
+                            .font(.title2.bold())
+                            .padding(.bottom, 8)
+
+                        opcion(
+                            "Configuración",
+                            icono: "gearshape.fill",
+                            destino: .configuracion
+                        )
+
+                        opcion(
+                            "Privacidad y seguridad",
+                            icono: "lock.shield.fill",
+                            destino: .privacidad
+                        )
+
+                        opcion(
+                            "Planes y suscripciones",
+                            icono: "crown.fill",
+                            destino: .planes
+                        )
+
+                        opcion(
+                            "Ayuda y soporte",
+                            icono: "questionmark.circle.fill",
+                            destino: .ayuda
+                        )
+
+                        opcion(
+                            "Acerca de Streamify",
+                            icono: "info.circle.fill",
+                            destino: .acerca
+                        )
+
+                        Button {
+                            mostrarAviso = true
+                        } label: {
+                            Label(
+                                "Cerrar sesión",
+                                systemImage: "rectangle.portrait.and.arrow.right"
+                            )
+                            .foregroundColor(.red)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding()
             }
             .background(Color.black)
+            .foregroundColor(.white)
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(item: $destino) { seleccion in
+                NavigationStack {
+                    pantalla(seleccion)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button("Listo") {
+                                    destino = nil
+                                }
+                                .foregroundColor(.green)
+                            }
+                        }
+                }
+                .preferredColorScheme(.dark)
+            }
+            .alert("Streamify", isPresented: $mostrarAviso) {
+                Button("Entendido", role: .cancel) { }
+            } message: {
+                Text("Esta versión todavía no tiene un sistema de inicio de sesión conectado.")
+            }
+        }
+    }
+
+    private func opcion(
+        _ titulo: String,
+        icono: String,
+        destino seleccion: DestinoCuenta
+    ) -> some View {
+        Button {
+            destino = seleccion
+        } label: {
+            HStack(spacing: 15) {
+                Image(systemName: icono)
+                    .font(.title3)
+                    .foregroundColor(.green)
+                    .frame(width: 28)
+
+                Text(titulo)
+                    .foregroundColor(.white)
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.gray)
+            }
+            .padding(.vertical, 13)
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func pantalla(_ seleccion: DestinoCuenta) -> some View {
+        switch seleccion {
+        case .perfil:
+            PerfilStreamify(nombre: $nombre, correo: $correo)
+
+        case .configuracion:
+            ConfiguracionStreamify()
+
+        case .privacidad:
+            PrivacidadStreamify()
+
+        case .planes:
+            PlanesStreamify(plan: $plan)
+
+        case .ayuda:
+            InformacionStreamify(
+                titulo: "Ayuda y soporte",
+                mensaje: "Gracias por utilizar Streamify. Próximamente tendrás más opciones de soporte."
+            )
+
+        case .acerca:
+            InformacionStreamify(
+                titulo: "Acerca de Streamify",
+                mensaje: "Streamify es tu espacio para descubrir, reproducir y guardar tu música favorita."
+            )
         }
     }
 
@@ -524,9 +678,7 @@ struct CuentaView: View {
         numero: Int,
         nombre: String
     ) -> some View {
-
         VStack(spacing: 8) {
-
             Image(systemName: icono)
                 .font(.title2)
                 .foregroundColor(.green)
@@ -545,14 +697,239 @@ struct CuentaView: View {
     }
 }
 
+// MARK: - EDITAR PERFIL
+
+struct PerfilStreamify: View {
+
+    @Binding var nombre: String
+    @Binding var correo: String
+
+    var body: some View {
+        Form {
+            Section("Información personal") {
+                HStack {
+                    Image(systemName: "person.crop.circle.fill")
+                        .font(.system(size: 55))
+                        .foregroundColor(.green)
+
+                    VStack(alignment: .leading) {
+                        Text(nombre)
+                            .font(.headline)
+
+                        Text("Perfil de Streamify")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.vertical, 10)
+
+                TextField("Nombre de usuario", text: $nombre)
+
+                TextField("Correo electrónico", text: $correo)
+                    .keyboardType(.emailAddress)
+                    .textInputAutocapitalization(.never)
+            }
+
+            Section {
+                Text("Tus cambios se guardan automáticamente en este dispositivo.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .navigationTitle("Editar perfil")
+    }
+}
+
+// MARK: - CONFIGURACIÓN
+
+struct ConfiguracionStreamify: View {
+
+    @AppStorage("streamify_calidad_alta") private var calidadAlta = false
+    @AppStorage("streamify_reproduccion") private var reproduccion = true
+    @AppStorage("streamify_notificaciones") private var notificaciones = true
+
+    var body: some View {
+        Form {
+            Section("Reproducción") {
+                Toggle("Reproducción automática", isOn: $reproduccion)
+
+                Toggle("Calidad de audio alta", isOn: $calidadAlta)
+            }
+
+            Section("Notificaciones") {
+                Toggle("Notificaciones", isOn: $notificaciones)
+            }
+
+            Section {
+                Text("Estas preferencias se guardan en este dispositivo. Algunas opciones todavía no están conectadas al reproductor.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .navigationTitle("Configuración")
+    }
+}
+
+// MARK: - PRIVACIDAD
+
+struct PrivacidadStreamify: View {
+
+    @AppStorage("streamify_actividad") private var actividad = true
+    @AppStorage("streamify_perfil_visible") private var perfilVisible = false
+
+    var body: some View {
+        Form {
+            Section("Privacidad") {
+                Toggle("Compartir actividad musical", isOn: $actividad)
+
+                Toggle("Mostrar perfil públicamente", isOn: $perfilVisible)
+            }
+
+            Section("Seguridad") {
+                Label(
+                    "Tu información permanece en este dispositivo",
+                    systemImage: "lock.fill"
+                )
+
+                Text("La autenticación y la administración de datos en la nube todavía no están implementadas.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .navigationTitle("Privacidad")
+    }
+}
+
+// MARK: - PLANES
+
+struct PlanesStreamify: View {
+
+    @Binding var plan: String
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 18) {
+
+                Image(systemName: "crown.fill")
+                    .font(.system(size: 65))
+                    .foregroundColor(.green)
+                    .padding(.top, 20)
+
+                Text("Elige tu experiencia")
+                    .font(.title.bold())
+
+                Text("Tu plan actual: \(plan)")
+                    .foregroundColor(.gray)
+
+                tarjeta(
+                    nombre: "Gratis",
+                    descripcion: "Tu música en Streamify",
+                    icono: "music.note"
+                )
+
+                tarjeta(
+                    nombre: "Premium",
+                    descripcion: "Plan individual",
+                    icono: "crown.fill"
+                )
+
+                tarjeta(
+                    nombre: "Familiar",
+                    descripcion: "Una opción para compartir en familia",
+                    icono: "person.2.fill"
+                )
+
+                Text("Los planes Premium y Familiar son opciones visuales por ahora. No hay pagos ni suscripciones activas conectadas.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding()
+            }
+            .padding()
+        }
+        .background(Color.black)
+        .navigationTitle("Planes")
+    }
+
+    private func tarjeta(
+        nombre: String,
+        descripcion: String,
+        icono: String
+    ) -> some View {
+        VStack(spacing: 12) {
+
+            Image(systemName: icono)
+                .font(.largeTitle)
+                .foregroundColor(.green)
+
+            Text("Streamify \(nombre)")
+                .font(.title2.bold())
+
+            Text(descripcion)
+                .foregroundColor(.gray)
+
+            if plan == nombre {
+                Text("PLAN ACTUAL")
+                    .font(.caption.bold())
+                    .foregroundColor(.green)
+            } else {
+                Button {
+                    if nombre == "Gratis" {
+                        plan = "Gratis"
+                    }
+                } label: {
+                    Text(nombre == "Gratis" ? "Seleccionar" : "Próximamente")
+                        .font(.headline)
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.green)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .disabled(nombre != "Gratis")
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity)
+        .background(Color(white: 0.13))
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+    }
+}
+
+// MARK: - INFORMACIÓN
+
+struct InformacionStreamify: View {
+
+    let titulo: String
+    let mensaje: String
+
+    var body: some View {
+        VStack(spacing: 20) {
+
+            Image(systemName: "music.note")
+                .font(.system(size: 65))
+                .foregroundColor(.green)
+
+            Text(titulo)
+                .font(.title.bold())
+
+            Text(mensaje)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+                .padding()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black)
+        .navigationTitle(titulo)
+    }
+}
+
 // MARK: - PREMIUM
 
 struct PremiumView: View {
 
     var body: some View {
-
         NavigationStack {
-
             VStack(spacing: 20) {
 
                 Image(systemName: "crown.fill")
@@ -583,15 +960,12 @@ struct MiniReproductor: View {
     @Binding var mostrarCompleto: Bool
 
     var body: some View {
-
         if let cancion = reproductor.cancionActual {
-
             HStack(spacing: 12) {
 
                 Button {
                     mostrarCompleto = true
                 } label: {
-
                     HStack(spacing: 12) {
 
                         PortadaCancion(url: cancion.urlPortada)
@@ -599,7 +973,6 @@ struct MiniReproductor: View {
                             .clipShape(RoundedRectangle(cornerRadius: 8))
 
                         VStack(alignment: .leading, spacing: 4) {
-
                             Text(cancion.titulo)
                                 .font(.headline)
                                 .foregroundColor(.white)
@@ -619,7 +992,6 @@ struct MiniReproductor: View {
                 Button {
                     reproductor.alternarPlayPausa()
                 } label: {
-
                     Image(
                         systemName: reproductor.reproduciendo
                         ? "pause.fill"
@@ -632,7 +1004,6 @@ struct MiniReproductor: View {
                 Button {
                     mostrarCompleto = true
                 } label: {
-
                     Image(systemName: "list.bullet")
                         .font(.title2)
                         .foregroundColor(.white)
