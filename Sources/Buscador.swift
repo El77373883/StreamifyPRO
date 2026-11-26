@@ -1,29 +1,67 @@
+
 import Foundation
 import SwiftUI
 
 class Buscador: ObservableObject {
+
     @Published var resultados: [Cancion] = []
     @Published var buscando = false
-    
+    @Published var errorBusqueda = ""
+
     func buscar(_ termino: String) {
-        guard !termino.isEmpty else { return }
+
+        let texto = termino.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+
+        guard !texto.isEmpty else {
+            resultados = []
+            return
+        }
+
         buscando = true
-        
-        let query = termino.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let urlString = "https://api.deezer.com/search?q=\(query)&limit=50"
-        
-        guard let url = URL(string: urlString) else { return }
-        
-        URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
-            guard let data = data, error == nil else {
-                DispatchQueue.main.async { self?.buscando = false }
+        errorBusqueda = ""
+
+        var componentes = URLComponents(
+            string: "https://api.deezer.com/search"
+        )
+
+        componentes?.queryItems = [
+            URLQueryItem(name: "q", value: texto),
+            URLQueryItem(name: "limit", value: "50")
+        ]
+
+        guard let url = componentes?.url else {
+            buscando = false
+            errorBusqueda = "Búsqueda no válida"
+            return
+        }
+
+        URLSession.shared.dataTask(with: url) {
+            [weak self] data, response, error in
+
+            guard let self = self else { return }
+
+            guard error == nil,
+                  let data = data,
+                  let http = response as? HTTPURLResponse,
+                  (200...299).contains(http.statusCode) else {
+
+                DispatchQueue.main.async {
+                    self.buscando = false
+                    self.errorBusqueda = "No se pudo conectar."
+                }
                 return
             }
-            
+
             do {
-                let respuesta = try JSONDecoder().decode(DeezerResponse.self, from: data)
+                let respuesta = try JSONDecoder().decode(
+                    DeezerResponse.self,
+                    from: data
+                )
+
                 let canciones = respuesta.data.map { item in
-                    return Cancion(
+                    Cancion(
                         titulo: item.title,
                         artista: item.artist.name,
                         album: item.album.title,
@@ -31,15 +69,19 @@ class Buscador: ObservableObject {
                         urlAudio: item.preview
                     )
                 }
-                
+
                 DispatchQueue.main.async {
-                    self?.resultados = canciones
-                    self?.buscando = false
+                    self.resultados = canciones
+                    self.buscando = false
                 }
+
             } catch {
-                print("Error decodificando Deezer: \(error)")
-                DispatchQueue.main.async { self?.buscando = false }
+                DispatchQueue.main.async {
+                    self.buscando = false
+                    self.errorBusqueda = "Error al cargar canciones."
+                }
             }
+
         }.resume()
     }
 }
