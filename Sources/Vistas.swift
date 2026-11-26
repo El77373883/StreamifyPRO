@@ -384,9 +384,14 @@ struct CuentaView: View {
 
     @ObservedObject var reproductor: Reproductor
 
-    @AppStorage("streamify_nombre") private var nombre = "Usuario Streamify"
-    @AppStorage("streamify_correo") private var correo = ""
-    @AppStorage("streamify_plan") private var plan = "Gratis"
+    @AppStorage("streamify_nombre")
+    private var nombre = "Usuario Streamify"
+
+    @AppStorage("streamify_correo")
+    private var correo = ""
+
+    @AppStorage("streamify_plan")
+    private var plan = "Gratis"
 
     @State private var destino: DestinoCuenta?
     @State private var mostrarAviso = false
@@ -407,9 +412,9 @@ struct CuentaView: View {
             ScrollView {
                 VStack(spacing: 22) {
 
-                    Image(systemName: "person.crop.circle.fill")
-                        .font(.system(size: 90))
-                        .foregroundColor(.green)
+                    // AVATAR REAL DEL USUARIO
+
+                    AvatarStreamify(tamano: 110)
                         .padding(.top, 25)
 
                     Text("Mi cuenta")
@@ -432,8 +437,6 @@ struct CuentaView: View {
                             .background(Color.green)
                             .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
-
-                    // ESTADÍSTICAS
 
                     HStack(spacing: 12) {
                         estadistica(
@@ -704,13 +707,20 @@ struct PerfilStreamify: View {
     @Binding var nombre: String
     @Binding var correo: String
 
+    @AppStorage("streamify_avatar_url")
+    private var avatarURL = ""
+
+    @AppStorage("streamify_avatar_data")
+    private var avatarData = ""
+
     var body: some View {
         Form {
             Section("Información personal") {
-                HStack {
-                    Image(systemName: "person.crop.circle.fill")
-                        .font(.system(size: 55))
-                        .foregroundColor(.green)
+
+                // AVATAR REAL Y GUARDADO
+
+                HStack(spacing: 15) {
+                    AvatarStreamify(tamano: 65)
 
                     VStack(alignment: .leading) {
                         Text(nombre)
@@ -730,6 +740,12 @@ struct PerfilStreamify: View {
                     .textInputAutocapitalization(.never)
             }
 
+            Section("Tu fotografía") {
+                Text("Para cambiar tu fotografía, puedes volver a seleccionarla desde la pantalla de registro.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
             Section {
                 Text("Tus cambios se guardan automáticamente en este dispositivo.")
                     .font(.caption)
@@ -744,9 +760,14 @@ struct PerfilStreamify: View {
 
 struct ConfiguracionStreamify: View {
 
-    @AppStorage("streamify_calidad_alta") private var calidadAlta = false
-    @AppStorage("streamify_reproduccion") private var reproduccion = true
-    @AppStorage("streamify_notificaciones") private var notificaciones = true
+    @AppStorage("streamify_calidad_alta")
+    private var calidadAlta = false
+
+    @AppStorage("streamify_reproduccion")
+    private var reproduccion = true
+
+    @AppStorage("streamify_notificaciones")
+    private var notificaciones = true
 
     var body: some View {
         Form {
@@ -774,8 +795,11 @@ struct ConfiguracionStreamify: View {
 
 struct PrivacidadStreamify: View {
 
-    @AppStorage("streamify_actividad") private var actividad = true
-    @AppStorage("streamify_perfil_visible") private var perfilVisible = false
+    @AppStorage("streamify_actividad")
+    private var actividad = true
+
+    @AppStorage("streamify_perfil_visible")
+    private var perfilVisible = false
 
     var body: some View {
         Form {
