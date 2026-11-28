@@ -15,27 +15,26 @@ struct ReproductorCompleto: View {
     }
 
     private var favorita: Bool {
-        guard let cancion = cancion else { return false }
+        guard let cancion else { return false }
         return reproductor.esFavorita(cancion)
     }
 
     private var descargada: Bool {
-        guard let cancion = cancion else { return false }
+        guard let cancion else { return false }
         return reproductor.estaDescargada(cancion)
     }
 
     private var descargando: Bool {
-        guard let cancion = cancion else { return false }
+        guard let cancion else { return false }
         return reproductor.descargandoKeys.contains(cancion.clave)
     }
 
     private var avanceDescarga: Double {
-        guard let cancion = cancion else { return 0 }
+        guard let cancion else { return 0 }
         return reproductor.progresoDescarga[cancion.clave] ?? 0
     }
 
     var body: some View {
-
         ZStack {
             Color(red: 0.07, green: 0.07, blue: 0.07)
                 .ignoresSafeArea()
@@ -43,7 +42,6 @@ struct ReproductorCompleto: View {
             VStack(spacing: 0) {
 
                 // ENCABEZADO
-
                 HStack {
                     Button {
                         dismiss()
@@ -55,7 +53,7 @@ struct ReproductorCompleto: View {
 
                     Spacer()
 
-                    Text("Recomendaciones para ti")
+                    Text("Reproduciendo")
                         .font(.headline)
                         .foregroundColor(.white)
 
@@ -67,34 +65,22 @@ struct ReproductorCompleto: View {
                 }
                 .padding()
 
-                Spacer(minLength: 15)
+                Spacer(minLength: 12)
 
-                // PORTADA
-
-                PortadaCancion(
-                    url: cancion?.urlPortada ?? ""
-                )
-                .frame(width: 320, height: 320)
-                .clipShape(Circle())
-                .overlay(
-                    Circle().stroke(
-                        Color.white.opacity(0.12),
-                        lineWidth: 2
+                // PORTADA CUADRADA
+                PortadaCancion(url: cancion?.urlPortada ?? "")
+                    .frame(width: 320, height: 320)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
                     )
-                )
-                .shadow(
-                    color: .black.opacity(0.5),
-                    radius: 20,
-                    y: 10
-                )
-                .padding(.bottom, 35)
+                    .shadow(color: .black.opacity(0.5), radius: 20, y: 10)
+                    .padding(.bottom, 30)
 
-                // NOMBRE Y BOTONES
-
+                // INFORMACIÓN
                 HStack {
-
                     VStack(alignment: .leading, spacing: 6) {
-
                         Text(cancion?.titulo ?? "Sin canción")
                             .font(.title2.bold())
                             .foregroundColor(.white)
@@ -108,60 +94,36 @@ struct ReproductorCompleto: View {
 
                     Spacer()
 
-                    // DESCARGAR
-
                     Button {
-
-                        if let cancion = cancion {
+                        if let cancion {
                             reproductor.descargar(cancion)
                         }
-
                     } label: {
-
                         if descargando {
                             ProgressView()
                                 .tint(.green)
-                                .scaleEffect(1.3)
                                 .frame(width: 34, height: 34)
-
                         } else {
-                            Image(
-                                systemName: descargada
-                                ? "checkmark.circle.fill"
-                                : "arrow.down.circle"
-                            )
-                            .font(.system(size: 30))
-                            .foregroundColor(
-                                descargada ? .green : .white
-                            )
+                            Image(systemName: descargada
+                                  ? "checkmark.circle.fill"
+                                  : "arrow.down.circle")
+                                .font(.system(size: 30))
+                                .foregroundColor(descargada ? .green : .white)
                         }
                     }
                     .disabled(descargada || descargando)
 
-                    // FAVORITOS
-
                     Button {
-
-                        if let cancion = cancion {
+                        if let cancion {
                             reproductor.alternarFavorito(cancion)
                         }
-
                     } label: {
-
-                        Image(
-                            systemName: favorita
-                            ? "heart.fill"
-                            : "plus.circle"
-                        )
-                        .font(.system(size: 30))
-                        .foregroundColor(
-                            favorita ? .green : .white
-                        )
+                        Image(systemName: favorita ? "heart.fill" : "plus.circle")
+                            .font(.system(size: 30))
+                            .foregroundColor(favorita ? .green : .white)
                     }
                 }
                 .padding(.horizontal, 24)
-
-                // MENSAJE DE DESCARGA
 
                 if !reproductor.mensajeDescarga.isEmpty {
                     Text(reproductor.mensajeDescarga)
@@ -172,15 +134,10 @@ struct ReproductorCompleto: View {
                         .padding(.top, 8)
                 }
 
-                // ANIMACIÓN Y PROGRESO DE DESCARGA
-
                 if descargando {
-
                     VStack(spacing: 9) {
-
                         HStack {
-                            ProgressView()
-                                .tint(.green)
+                            ProgressView().tint(.green)
 
                             Text("Descargando música...")
                                 .font(.caption)
@@ -188,71 +145,41 @@ struct ReproductorCompleto: View {
 
                             Spacer()
 
-                            if avanceDescarga > 0 {
-                                Text(
-                                    "\(Int(avanceDescarga * 100))%"
-                                )
+                            Text(avanceDescarga > 0
+                                 ? "\(Int(avanceDescarga * 100))%"
+                                 : "Preparando")
                                 .font(.caption.bold().monospacedDigit())
                                 .foregroundColor(.green)
-                            } else {
-                                Text("Preparando")
-                                    .font(.caption)
-                                    .foregroundColor(.green)
-                            }
                         }
 
-                        if avanceDescarga > 0 {
-                            ProgressView(value: avanceDescarga)
-                                .tint(.green)
-                                .animation(
-                                    .easeInOut(duration: 0.2),
-                                    value: avanceDescarga
-                                )
-                        } else {
-                            ProgressView()
-                                .tint(.green)
-                        }
+                        ProgressView(value: avanceDescarga)
+                            .tint(.green)
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 12)
                 }
 
-                // PROGRESO DE REPRODUCCIÓN
-
+                // BARRA DE PROGRESO
                 VStack(spacing: 8) {
-
                     Slider(
                         value: $progresoLocal,
                         in: 0...1,
                         onEditingChanged: { editing in
-
                             arrastrando = editing
 
                             if !editing {
-                                reproductor.cambiarProgreso(
-                                    a: progresoLocal
-                                )
+                                reproductor.cambiarProgreso(a: progresoLocal)
                             }
                         }
                     )
                     .tint(.white)
 
                     HStack {
-
-                        Text(
-                            tiempo(
-                                progresoLocal * reproductor.duracion
-                            )
-                        )
-
+                        Text(tiempo(progresoLocal * reproductor.duracion))
                         Spacer()
-
-                        Text(
-                            "-" + tiempo(
-                                reproductor.duracion *
-                                (1 - progresoLocal)
-                            )
-                        )
+                        Text("-" + tiempo(
+                            reproductor.duracion * (1 - progresoLocal)
+                        ))
                     }
                     .font(.caption2)
                     .foregroundColor(.gray)
@@ -266,14 +193,21 @@ struct ReproductorCompleto: View {
                 }
 
                 // CONTROLES
+                HStack(spacing: 25) {
 
-                HStack(spacing: 30) {
+                    Button {
+                        reproductor.alternarAleatorio()
+                    } label: {
+                        Image(systemName: "shuffle")
+                            .font(.title2)
+                            .foregroundColor(
+                                reproductor.aleatorio ? .green : .gray
+                            )
+                    }
 
-                    Image(systemName: "shuffle")
-                        .font(.title2)
-                        .foregroundColor(.green)
-
-                    Button {} label: {
+                    Button {
+                        reproductor.anterior()
+                    } label: {
                         Image(systemName: "backward.end.fill")
                             .font(.system(size: 30))
                             .foregroundColor(.white)
@@ -282,84 +216,83 @@ struct ReproductorCompleto: View {
                     Button {
                         reproductor.alternarPlayPausa()
                     } label: {
-
                         ZStack {
                             Circle()
                                 .fill(.white)
                                 .frame(width: 76, height: 76)
 
-                            Image(
-                                systemName: reproductor.reproduciendo
-                                ? "pause.fill"
-                                : "play.fill"
-                            )
-                            .font(.system(size: 30))
-                            .foregroundColor(.black)
+                            Image(systemName: reproductor.reproduciendo
+                                  ? "pause.fill" : "play.fill")
+                                .font(.system(size: 30))
+                                .foregroundColor(.black)
                         }
                     }
 
-                    Button {} label: {
+                    Button {
+                        reproductor.siguiente()
+                    } label: {
                         Image(systemName: "forward.end.fill")
                             .font(.system(size: 30))
                             .foregroundColor(.white)
                     }
 
-                    Image(systemName: "repeat")
-                        .font(.title2)
-                        .foregroundColor(.gray)
+                    Button {
+                        reproductor.cambiarRepeticion()
+                    } label: {
+                        Image(systemName: reproductor.repetirModo == 2
+                              ? "repeat.1" : "repeat")
+                            .font(.title2)
+                            .foregroundColor(
+                                reproductor.repetirModo == 0 ? .gray : .green
+                            )
+                    }
                 }
-                .padding(.top, 30)
+                .padding(.top, 28)
 
-                Spacer()
-
-                // OPCIONES
-
-                HStack {
-                    Image(systemName: "quote.bubble")
-                        .font(.title3)
-                        .foregroundColor(.green)
-
-                    Spacer()
-
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.title3)
-                        .foregroundColor(.white)
-
-                    Image(systemName: "list.bullet")
-                        .font(.title3)
-                        .foregroundColor(.white)
-                }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 20)
+                Spacer(minLength: 12)
 
                 // LETRAS
-
                 VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Image(systemName: "quote.bubble")
+                            .foregroundColor(.green)
 
-                    Text("Vista previa de la letra")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .padding()
-                        .frame(
-                            maxWidth: .infinity,
-                            alignment: .leading
-                        )
-                        .background(
-                            Color(red: 0.2, green: 0.3, blue: 0.2)
-                        )
+                        Text("Letra de la canción")
+                            .font(.headline)
+                            .foregroundColor(.white)
 
-                    Text("Letra próximamente...")
+                        Spacer()
+
+                        if reproductor.cargandoLetra {
+                            ProgressView().tint(.white)
+                        }
+                    }
+                    .padding()
+
+                    Divider().overlay(Color.white.opacity(0.1))
+
+                    ScrollView {
+                        Group {
+                            if reproductor.cargandoLetra {
+                                Text("Buscando letra...")
+                                    .foregroundColor(.white.opacity(0.7))
+                            } else if reproductor.letraNoEncontrada {
+                                Text("No encontramos la letra de esta canción.")
+                                    .foregroundColor(.white.opacity(0.7))
+                            } else {
+                                Text(reproductor.letra)
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .textSelection(.enabled)
+                            }
+                        }
                         .font(.body)
-                        .foregroundColor(.white)
                         .padding()
-                        .frame(
-                            maxWidth: .infinity,
-                            alignment: .leading
-                        )
-                        .background(
-                            Color(red: 0.15, green: 0.25, blue: 0.15)
-                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(maxHeight: 155)
                 }
+                .background(Color(red: 0.15, green: 0.25, blue: 0.15))
                 .clipShape(RoundedRectangle(cornerRadius: 15))
                 .padding(.horizontal, 16)
                 .padding(.bottom, 10)
@@ -368,12 +301,12 @@ struct ReproductorCompleto: View {
         .onAppear {
             progresoLocal = reproductor.progreso
         }
+        .onChange(of: reproductor.cancionActual?.clave) { _ in
+            progresoLocal = 0
+        }
     }
 
-    // MARK: - FORMATO DE TIEMPO
-
     private func tiempo(_ segundos: Double) -> String {
-
         guard segundos.isFinite, segundos >= 0 else {
             return "0:00"
         }
