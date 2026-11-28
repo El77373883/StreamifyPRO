@@ -1,4 +1,5 @@
 
+
 import Foundation
 
 struct Cancion: Identifiable, Codable, Equatable {
@@ -30,6 +31,32 @@ struct Cancion: Identifiable, Codable, Equatable {
     }
 }
 
+// MARK: - ARTISTAS
+
+struct Artista: Identifiable, Codable, Equatable {
+    let id: Int
+    let name: String
+    let picture_medium: String?
+    let picture_big: String?
+    let nb_fan: Int?
+    let nb_album: Int?
+
+    var fotografia: String {
+        picture_big ?? picture_medium ?? ""
+    }
+
+    var fansTexto: String {
+        guard let fans = nb_fan else { return "Fans no disponibles" }
+        return "\(fans.formatted()) fans"
+    }
+}
+
+struct RespuestaArtistas: Codable {
+    let data: [Artista]
+}
+
+// MARK: - RESPUESTA DE CANCIONES
+
 struct DeezerResponse: Codable {
     let data: [DeezerItem]
 }
@@ -49,4 +76,21 @@ struct DeezerItem: Codable, Identifiable {
         let title: String
         let cover_medium: String
     }
+}
+
+// MARK: - ÁLBUMES
+
+struct AlbumArtista: Codable, Identifiable {
+    let id: Int
+    let title: String
+    let cover_medium: String?
+    let release_date: String?
+
+    var portada: String {
+        cover_medium ?? ""
+    }
+}
+
+struct RespuestaAlbumes: Codable {
+    let data: [AlbumArtista]
 }
