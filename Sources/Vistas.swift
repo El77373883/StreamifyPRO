@@ -4,23 +4,18 @@ import SwiftUI
 // MARK: - PORTADAS
 
 struct PortadaCancion: View {
-
     let url: String
 
     var body: some View {
         AsyncImage(url: URL(string: url)) { phase in
             switch phase {
             case .success(let image):
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-
+                image.resizable().aspectRatio(contentMode: .fill)
             case .empty:
                 ZStack {
                     Color(white: 0.15)
                     ProgressView().tint(.green)
                 }
-
             case .failure:
                 ZStack {
                     Color(white: 0.15)
@@ -28,7 +23,6 @@ struct PortadaCancion: View {
                         .font(.largeTitle)
                         .foregroundColor(.green)
                 }
-
             @unknown default:
                 Color.gray
             }
@@ -41,10 +35,8 @@ struct PortadaCancion: View {
 // MARK: - MAIN VIEW
 
 struct MainView: View {
-
     @StateObject private var reproductor = Reproductor()
     @StateObject private var buscador = Buscador()
-
     @State private var mostrarCompleto = false
 
     @ViewBuilder
@@ -55,15 +47,13 @@ struct MainView: View {
                 mostrarCompleto: $mostrarCompleto
             )
             .padding(.horizontal, 8)
-            .padding(.top, 5)
-            .padding(.bottom, 5)
+            .padding(.vertical, 5)
             .background(Color.black)
         }
     }
 
     var body: some View {
         TabView {
-
             InicioView(reproductor: reproductor)
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     miniPlayer
@@ -118,11 +108,9 @@ struct MainView: View {
 // MARK: - INICIO
 
 struct InicioView: View {
-
     @ObservedObject var reproductor: Reproductor
 
     private let recomendados = [
-
         Cancion(
             titulo: "Amanecido y Regañado",
             artista: "Chuyin, Calle 24, Jorsshh",
@@ -130,7 +118,6 @@ struct InicioView: View {
             urlPortada: "https://i.scdn.co/image/ab67616d0000b2732fc2e4c97820adf4db122e86",
             urlAudio: "https://archive.org/download/chuyin-x-calle-24-x-jorsshh-amanecido-y-reganado-official-video/Chuyin%20X%20Calle24%20X%20Jorsshh%20-%20Amanecido%20y%20Regan%CC%83ado%20%5BOfficial%20Video%5D.mp3"
         ),
-
         Cancion(
             titulo: "Midnight City",
             artista: "M83",
@@ -138,7 +125,6 @@ struct InicioView: View {
             urlPortada: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&q=80",
             urlAudio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
         ),
-
         Cancion(
             titulo: "Blinding Lights",
             artista: "The Weeknd",
@@ -146,7 +132,6 @@ struct InicioView: View {
             urlPortada: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&q=80",
             urlAudio: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"
         ),
-
         Cancion(
             titulo: "Levitating",
             artista: "Dua Lipa",
@@ -165,7 +150,6 @@ struct InicioView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
-
                     Text("Buenas tardes")
                         .font(.largeTitle.bold())
                         .padding(.horizontal)
@@ -180,7 +164,6 @@ struct InicioView: View {
                                 reproductor.reproducir(cancion)
                             } label: {
                                 VStack(alignment: .leading, spacing: 8) {
-
                                     PortadaCancion(url: cancion.urlPortada)
                                         .frame(height: 155)
                                         .clipShape(
@@ -214,61 +197,374 @@ struct InicioView: View {
 // MARK: - BUSCAR
 
 struct BuscarView: View {
-
     @ObservedObject var buscador: Buscador
     @ObservedObject var reproductor: Reproductor
 
     @State private var termino = ""
+    @State private var mostrarArtista: Artista?
 
     var body: some View {
         NavigationStack {
-            VStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 25) {
+                    Text("Buscar")
+                        .font(.largeTitle.bold())
+                        .padding(.horizontal)
 
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.gray)
+                    // BARRA DE BÚSQUEDA
 
-                    TextField(
-                        "¿Qué quieres escuchar?",
-                        text: $termino
-                    )
-                    .submitLabel(.search)
-                    .onSubmit {
-                        buscador.buscar(termino)
+                    HStack(spacing: 10) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.gray)
+
+                        TextField(
+                            "¿Qué quieres escuchar?",
+                            text: $termino
+                        )
+                        .foregroundColor(.white)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+
+                        if !termino.isEmpty {
+                            Button {
+                                termino = ""
+                                buscador.buscar("")
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(Color(white: 0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .padding(.horizontal)
+
+                    if buscador.buscando {
+                        ProgressView()
+                            .tint(.green)
+                            .frame(maxWidth: .infinity)
                     }
 
+                    if !buscador.errorBusqueda.isEmpty {
+                        Text(buscador.errorBusqueda)
+                            .foregroundColor(.gray)
+                            .padding(.horizontal)
+                    }
+
+                    // ARTISTAS
+
+                    if !buscador.artistas.isEmpty {
+                        VStack(alignment: .leading, spacing: 15) {
+                            Text("Artistas")
+                                .font(.title2.bold())
+                                .foregroundColor(.green)
+                                .padding(.horizontal)
+
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 18) {
+                                    ForEach(buscador.artistas) { artista in
+                                        Button {
+                                            buscador.abrirArtista(artista)
+                                            mostrarArtista = artista
+                                        } label: {
+                                            VStack(spacing: 8) {
+                                                AsyncImage(
+                                                    url: URL(string: artista.fotografia)
+                                                ) { image in
+                                                    image
+                                                        .resizable()
+                                                        .scaledToFill()
+                                                } placeholder: {
+                                                    Circle()
+                                                        .fill(Color.gray.opacity(0.2))
+                                                        .overlay {
+                                                            Image(systemName: "person.fill")
+                                                                .foregroundColor(.green)
+                                                        }
+                                                }
+                                                .frame(width: 105, height: 105)
+                                                .clipShape(Circle())
+                                                .overlay {
+                                                    Circle()
+                                                        .stroke(Color.green, lineWidth: 2)
+                                                }
+
+                                                Text(artista.name)
+                                                    .font(.subheadline.bold())
+                                                    .foregroundColor(.white)
+                                                    .lineLimit(1)
+                                                    .frame(width: 110)
+                                            }
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.horizontal)
+                            }
+                        }
+                    }
+
+                    // CANCIONES
+
+                    if !cancionesMostrar.isEmpty {
+                        VStack(alignment: .leading, spacing: 15) {
+                            Text(
+                                termino.isEmpty
+                                ? "Canciones recomendadas"
+                                : "Canciones"
+                            )
+                            .font(.title2.bold())
+                            .foregroundColor(.green)
+                            .padding(.horizontal)
+
+                            ForEach(cancionesMostrar) { cancion in
+                                Button {
+                                    reproductor.reproducir(cancion)
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        PortadaCancion(url: cancion.urlPortada)
+                                            .frame(width: 65, height: 65)
+                                            .clipShape(
+                                                RoundedRectangle(cornerRadius: 9)
+                                            )
+
+                                        VStack(alignment: .leading, spacing: 5) {
+                                            Text(cancion.titulo)
+                                                .font(.headline)
+                                                .foregroundColor(.white)
+                                                .lineLimit(1)
+
+                                            Text(cancion.artista)
+                                                .font(.subheadline)
+                                                .foregroundColor(.gray)
+                                                .lineLimit(1)
+                                        }
+
+                                        Spacer()
+
+                                        Image(systemName: "play.circle.fill")
+                                            .font(.title)
+                                            .foregroundColor(.green)
+                                    }
+                                    .padding(.horizontal)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+
+                    if cancionesMostrar.isEmpty &&
+                        buscador.artistas.isEmpty &&
+                        !buscador.buscando {
+                        Text("Busca tus artistas y canciones favoritas.")
+                            .foregroundColor(.gray)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 30)
+                    }
+                }
+                .padding(.vertical, 15)
+            }
+            .background(Color.black)
+            .onChange(of: termino) { nuevoValor in
+                buscador.buscar(nuevoValor)
+            }
+            .onAppear {
+                if buscador.artistas.isEmpty {
+                    buscador.cargarInicio()
+                }
+            }
+            .navigationBarHidden(true)
+            .sheet(item: $mostrarArtista) { artista in
+                PerfilArtistaView(
+                    artista: artista,
+                    buscador: buscador,
+                    reproductor: reproductor
+                )
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private var cancionesMostrar: [Cancion] {
+        termino.isEmpty
+        ? buscador.recomendaciones
+        : buscador.resultados
+    }
+}
+
+// MARK: - PERFIL DEL ARTISTA
+
+struct PerfilArtistaView: View {
+    let artista: Artista
+
+    @ObservedObject var buscador: Buscador
+    @ObservedObject var reproductor: Reproductor
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var pestaña = 0
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+
+                    // FOTO Y DATOS DEL ARTISTA
+
+                    ZStack(alignment: .bottomLeading) {
+                        AsyncImage(
+                            url: URL(string: artista.fotografia)
+                        ) { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        } placeholder: {
+                            Color.gray.opacity(0.2)
+                        }
+                        .frame(height: 300)
+                        .frame(maxWidth: .infinity)
+                        .clipped()
+
+                        LinearGradient(
+                            colors: [.clear, .black],
+                            startPoint: .center,
+                            endPoint: .bottom
+                        )
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(artista.name)
+                                .font(.system(size: 35, weight: .bold))
+
+                            Text(artista.fansTexto)
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.8))
+
+                            Text("\(artista.nb_album ?? 0) álbumes registrados")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                        .padding()
+                    }
+                    .frame(height: 300)
+
+                    // CONTROLES
+
+                    HStack(spacing: 15) {
+                        Button {
+                            if let primera = buscador.cancionesArtista.first {
+                                reproductor.reproducir(primera)
+                            }
+                        } label: {
+                            Label("Reproducir", systemImage: "play.fill")
+                                .font(.headline)
+                                .foregroundColor(.black)
+                                .padding(.horizontal, 22)
+                                .padding(.vertical, 12)
+                                .background(Color.green)
+                                .clipShape(Capsule())
+                        }
+
+                        Button {
+                            // Seguimiento pendiente de implementar.
+                        } label: {
+                            Text("Seguir")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 22)
+                                .padding(.vertical, 12)
+                                .overlay {
+                                    Capsule()
+                                        .stroke(Color.white.opacity(0.5))
+                                }
+                        }
+                    }
+                    .padding(.horizontal)
+
+                    // PESTAÑAS
+
+                    HStack(spacing: 0) {
+                        pestañaBoton("Canciones", numero: 0)
+                        pestañaBoton("Álbumes", numero: 1)
+                        pestañaBoton("Producciones", numero: 2)
+                    }
+                    .padding(.horizontal)
+
+                    if buscador.cargandoArtista {
+                        ProgressView("Cargando perfil...")
+                            .tint(.green)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                    } else {
+                        contenidoPestana
+                    }
+                }
+                .padding(.bottom, 25)
+            }
+            .background(Color.black)
+            .foregroundColor(.white)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        buscador.buscar(termino)
+                        dismiss()
                     } label: {
-                        Text("Buscar")
+                        Image(systemName: "chevron.left")
                             .foregroundColor(.green)
                     }
                 }
-                .padding()
-                .background(Color(white: 0.16))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .padding()
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
 
-                if buscador.buscando {
-                    ProgressView()
-                        .tint(.green)
-                }
+    private func pestañaBoton(
+        _ titulo: String,
+        numero: Int
+    ) -> some View {
+        Button {
+            pestaña = numero
+        } label: {
+            VStack(spacing: 8) {
+                Text(titulo)
+                    .font(.subheadline.bold())
+                    .foregroundColor(
+                        pestaña == numero ? .green : .gray
+                    )
 
-                if !buscador.errorBusqueda.isEmpty {
-                    Text(buscador.errorBusqueda)
-                        .foregroundColor(.red)
-                        .padding()
-                }
+                Rectangle()
+                    .fill(pestaña == numero ? Color.green : Color.clear)
+                    .frame(height: 3)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+    }
 
-                List(buscador.resultados) { cancion in
+    @ViewBuilder
+    private var contenidoPestana: some View {
+        switch pestaña {
+        case 0:
+            VStack(alignment: .leading, spacing: 15) {
+                Text("Canciones populares")
+                    .font(.title2.bold())
+                    .padding(.horizontal)
+
+                ForEach(
+                    Array(buscador.cancionesArtista.enumerated()),
+                    id: \.element.id
+                ) { indice, cancion in
                     Button {
                         reproductor.reproducir(cancion)
                     } label: {
                         HStack(spacing: 12) {
+                            Text("\(indice + 1)")
+                                .foregroundColor(.gray)
+                                .frame(width: 20)
 
                             PortadaCancion(url: cancion.urlPortada)
                                 .frame(width: 55, height: 55)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .clipShape(
+                                    RoundedRectangle(cornerRadius: 8)
+                                )
 
                             VStack(alignment: .leading, spacing: 5) {
                                 Text(cancion.titulo)
@@ -276,25 +572,60 @@ struct BuscarView: View {
                                     .font(.headline)
                                     .lineLimit(1)
 
-                                Text(cancion.artista)
+                                Text(cancion.album)
                                     .foregroundColor(.gray)
                                     .font(.caption)
-                                    .lineLimit(1)
                             }
 
                             Spacer()
 
-                            Image(systemName: "play.circle")
+                            Image(systemName: "play.circle.fill")
                                 .foregroundColor(.green)
                                 .font(.title2)
                         }
+                        .padding(.horizontal)
                     }
-                    .listRowBackground(Color.black)
+                    .buttonStyle(.plain)
                 }
-                .scrollContentBackground(.hidden)
             }
-            .background(Color.black)
-            .navigationTitle("Buscar")
+
+        case 1, 2:
+            VStack(alignment: .leading, spacing: 15) {
+                Text(pestaña == 1 ? "Álbumes" : "Producciones")
+                    .font(.title2.bold())
+                    .padding(.horizontal)
+
+                LazyVGrid(
+                    columns: [
+                        GridItem(.flexible()),
+                        GridItem(.flexible())
+                    ],
+                    spacing: 18
+                ) {
+                    ForEach(buscador.albumesArtista) { album in
+                        VStack(alignment: .leading, spacing: 7) {
+                            PortadaCancion(url: album.portada)
+                                .aspectRatio(1, contentMode: .fill)
+                                .clipShape(
+                                    RoundedRectangle(cornerRadius: 10)
+                                )
+
+                            Text(album.title)
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .lineLimit(2)
+
+                            Text(album.release_date ?? "Fecha no disponible")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+            }
+
+        default:
+            EmptyView()
         }
     }
 }
@@ -302,13 +633,11 @@ struct BuscarView: View {
 // MARK: - BIBLIOTECA
 
 struct BibliotecaView: View {
-
     @ObservedObject var reproductor: Reproductor
 
     var body: some View {
         NavigationStack {
             List {
-
                 Section("Música descargada") {
                     if reproductor.descargas.isEmpty {
                         Text("Todavía no tienes descargas.")
@@ -347,12 +676,10 @@ struct BibliotecaView: View {
 // MARK: - FILA DE CANCIÓN
 
 struct FilaCancion: View {
-
     let cancion: Cancion
 
     var body: some View {
         HStack(spacing: 12) {
-
             PortadaCancion(url: cancion.urlPortada)
                 .frame(width: 52, height: 52)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -381,7 +708,6 @@ struct FilaCancion: View {
 // MARK: - MI CUENTA
 
 struct CuentaView: View {
-
     @ObservedObject var reproductor: Reproductor
 
     @AppStorage("streamify_nombre")
@@ -397,13 +723,7 @@ struct CuentaView: View {
     @State private var mostrarAviso = false
 
     enum DestinoCuenta: String, Identifiable {
-        case perfil
-        case configuracion
-        case privacidad
-        case planes
-        case ayuda
-        case acerca
-
+        case perfil, configuracion, privacidad, planes, ayuda, acerca
         var id: String { rawValue }
     }
 
@@ -411,9 +731,6 @@ struct CuentaView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 22) {
-
-                    // AVATAR REAL DEL USUARIO
-
                     AvatarStreamify(tamano: 110)
                         .padding(.top, 25)
 
@@ -451,8 +768,6 @@ struct CuentaView: View {
                             nombre: "Descargas"
                         )
                     }
-
-                    // MI PLAN
 
                     VStack(alignment: .leading, spacing: 12) {
                         Text("👑 Mi plan")
@@ -494,8 +809,6 @@ struct CuentaView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    // FAVORITOS
-
                     VStack(alignment: .leading, spacing: 15) {
                         Text("❤️ Mis favoritos")
                             .font(.title2.bold())
@@ -517,8 +830,6 @@ struct CuentaView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                     Divider()
-
-                    // DESCARGAS
 
                     VStack(alignment: .leading, spacing: 15) {
                         Text("⬇️ Música descargada")
@@ -542,42 +853,16 @@ struct CuentaView: View {
 
                     Divider()
 
-                    // OPCIONES DE CUENTA
-
                     VStack(alignment: .leading, spacing: 5) {
                         Text("⚙️ Tu cuenta")
                             .font(.title2.bold())
                             .padding(.bottom, 8)
 
-                        opcion(
-                            "Configuración",
-                            icono: "gearshape.fill",
-                            destino: .configuracion
-                        )
-
-                        opcion(
-                            "Privacidad y seguridad",
-                            icono: "lock.shield.fill",
-                            destino: .privacidad
-                        )
-
-                        opcion(
-                            "Planes y suscripciones",
-                            icono: "crown.fill",
-                            destino: .planes
-                        )
-
-                        opcion(
-                            "Ayuda y soporte",
-                            icono: "questionmark.circle.fill",
-                            destino: .ayuda
-                        )
-
-                        opcion(
-                            "Acerca de Streamify",
-                            icono: "info.circle.fill",
-                            destino: .acerca
-                        )
+                        opcion("Configuración", icono: "gearshape.fill", destino: .configuracion)
+                        opcion("Privacidad y seguridad", icono: "lock.shield.fill", destino: .privacidad)
+                        opcion("Planes y suscripciones", icono: "crown.fill", destino: .planes)
+                        opcion("Ayuda y soporte", icono: "questionmark.circle.fill", destino: .ayuda)
+                        opcion("Acerca de Streamify", icono: "info.circle.fill", destino: .acerca)
 
                         Button {
                             mostrarAviso = true
@@ -652,22 +937,17 @@ struct CuentaView: View {
         switch seleccion {
         case .perfil:
             PerfilStreamify(nombre: $nombre, correo: $correo)
-
         case .configuracion:
             ConfiguracionStreamify()
-
         case .privacidad:
             PrivacidadStreamify()
-
         case .planes:
             PlanesStreamify(plan: $plan)
-
         case .ayuda:
             InformacionStreamify(
                 titulo: "Ayuda y soporte",
                 mensaje: "Gracias por utilizar Streamify. Próximamente tendrás más opciones de soporte."
             )
-
         case .acerca:
             InformacionStreamify(
                 titulo: "Acerca de Streamify",
@@ -703,7 +983,6 @@ struct CuentaView: View {
 // MARK: - EDITAR PERFIL
 
 struct PerfilStreamify: View {
-
     @Binding var nombre: String
     @Binding var correo: String
 
@@ -716,9 +995,6 @@ struct PerfilStreamify: View {
     var body: some View {
         Form {
             Section("Información personal") {
-
-                // AVATAR REAL Y GUARDADO
-
                 HStack(spacing: 15) {
                     AvatarStreamify(tamano: 65)
 
@@ -759,7 +1035,6 @@ struct PerfilStreamify: View {
 // MARK: - CONFIGURACIÓN
 
 struct ConfiguracionStreamify: View {
-
     @AppStorage("streamify_calidad_alta")
     private var calidadAlta = false
 
@@ -773,7 +1048,6 @@ struct ConfiguracionStreamify: View {
         Form {
             Section("Reproducción") {
                 Toggle("Reproducción automática", isOn: $reproduccion)
-
                 Toggle("Calidad de audio alta", isOn: $calidadAlta)
             }
 
@@ -794,7 +1068,6 @@ struct ConfiguracionStreamify: View {
 // MARK: - PRIVACIDAD
 
 struct PrivacidadStreamify: View {
-
     @AppStorage("streamify_actividad")
     private var actividad = true
 
@@ -805,7 +1078,6 @@ struct PrivacidadStreamify: View {
         Form {
             Section("Privacidad") {
                 Toggle("Compartir actividad musical", isOn: $actividad)
-
                 Toggle("Mostrar perfil públicamente", isOn: $perfilVisible)
             }
 
@@ -827,13 +1099,11 @@ struct PrivacidadStreamify: View {
 // MARK: - PLANES
 
 struct PlanesStreamify: View {
-
     @Binding var plan: String
 
     var body: some View {
         ScrollView {
             VStack(spacing: 18) {
-
                 Image(systemName: "crown.fill")
                     .font(.system(size: 65))
                     .foregroundColor(.green)
@@ -881,7 +1151,6 @@ struct PlanesStreamify: View {
         icono: String
     ) -> some View {
         VStack(spacing: 12) {
-
             Image(systemName: icono)
                 .font(.largeTitle)
                 .foregroundColor(.green)
@@ -923,13 +1192,11 @@ struct PlanesStreamify: View {
 // MARK: - INFORMACIÓN
 
 struct InformacionStreamify: View {
-
     let titulo: String
     let mensaje: String
 
     var body: some View {
         VStack(spacing: 20) {
-
             Image(systemName: "music.note")
                 .font(.system(size: 65))
                 .foregroundColor(.green)
@@ -951,11 +1218,9 @@ struct InformacionStreamify: View {
 // MARK: - PREMIUM
 
 struct PremiumView: View {
-
     var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
-
                 Image(systemName: "crown.fill")
                     .font(.system(size: 75))
                     .foregroundColor(.green)
@@ -979,19 +1244,16 @@ struct PremiumView: View {
 // MARK: - MINI REPRODUCTOR
 
 struct MiniReproductor: View {
-
     @ObservedObject var reproductor: Reproductor
     @Binding var mostrarCompleto: Bool
 
     var body: some View {
         if let cancion = reproductor.cancionActual {
             HStack(spacing: 12) {
-
                 Button {
                     mostrarCompleto = true
                 } label: {
                     HStack(spacing: 12) {
-
                         PortadaCancion(url: cancion.urlPortada)
                             .frame(width: 55, height: 55)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
